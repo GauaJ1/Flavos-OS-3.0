@@ -200,7 +200,7 @@ run_mode() {
   local serial_prefix="${TEMP_DIR}/serial-${mode}"
   local serial_input="${TEMP_DIR}/serial-${mode}.in"
   local serial_output="${TEMP_DIR}/serial-${mode}.out"
-  local elapsed next_enter probe_line tty_nonce tty_expected guest_command
+  local elapsed next_enter probe_line tty_nonce tty_expected tty_frame guest_command
   local tty_attempt
   local -a firmware_args=()
 
@@ -264,17 +264,18 @@ run_mode() {
 
         tty_nonce="${SHORT_SHA}_${mode}_$$_${elapsed}"
         tty_expected="FLAVOS_M0_TTY nonce=${tty_nonce} user=flavos pid1=systemd"
-        guest_command="printf 'FLAVOS_M0_TTY nonce=${tty_nonce} user=%s pid1=%s\\n' \"\$(id -un)\" \"\$(cat /proc/1/comm)\""
+        tty_frame=$'\036'"${tty_expected}"$'\037'
+        guest_command="printf '\\036%s%s nonce=${tty_nonce} user=%s pid1=%s\\037\\n' 'FLAVOS_M0_' 'TTY' \"\$(id -un)\" \"\$(cat /proc/1/comm)\""
 
         for ((tty_attempt = 1; tty_attempt <= 8; tty_attempt++)); do
           printf '\r%s\r' "${guest_command}" >&"${serial_fd}"
           sleep 1
-          if tr -d '\r' <"${serial_log}" | grep -Fxq -- "${tty_expected}"; then
+          if LC_ALL=C grep -aFq -- "${tty_frame}" "${serial_log}"; then
             break
           fi
         done
 
-        if ! tr -d '\r' <"${serial_log}" | grep -Fxq -- "${tty_expected}"; then
+        if ! LC_ALL=C grep -aFq -- "${tty_frame}" "${serial_log}"; then
           printf 'O TTY %s não executou o desafio enviado pela serial.\n' \
             "${mode}" >&2
           print_log_tail_escaped "${serial_log}" 120 >&2 || true
