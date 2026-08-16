@@ -1,0 +1,39 @@
+# live-build: áreas e produtos gerados
+image/.build/
+image/binary/
+image/cache/
+image/chroot/
+image/local/
+image/tmp/
+image/*.contents
+image/*.files
+image/*.iso
+image/*.list
+image/*.packages
+image/build.log
+
+# Imagens, discos e firmware temporário de máquinas virtuais
+*.iso
+*.img
+*.qcow2
+*.vdi
+*.vmdk
+*.fd
+
+# Artefatos de release gerados localmente
+releases/*.sha256
+releases/*.sha512
+releases/*.xz
+releases/*.zst
+
+# Logs, caches e temporários
+*.log
+*.tmp
+*.swp
+.cache/
+
+# Arquivos locais de editores e sistemas operacionais
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
