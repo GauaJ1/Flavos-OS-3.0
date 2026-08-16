@@ -1,0 +1,63 @@
+#!/bin/bash
+
+set -Eeuo pipefail
+
+readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+readonly IMAGE_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
+readonly REPO_ROOT="$(cd -- "${IMAGE_DIR}/.." && pwd -P)"
+readonly ARCHIVE_MARKER="${IMAGE_DIR}/.m0-last-archive"
+readonly ALLOW_DIRTY="${FLAVOS_ALLOW_DIRTY_BUILD:-0}"
+
+if ((EUID != 0)); then
+  printf 'Erro: o build do live-build precisa ser executado com sudo.\n' >&2
+  exit 1
+fi
+
+if ! command -v lb >/dev/null 2>&1; then
+  printf 'Erro: live-build não está instalado.\n' >&2
+  exit 1
+fi
+
+if ! command -v git >/dev/null 2>&1; then
+  printf 'Erro: git é necessário para identificar o build.\n' >&2
+  exit 1
+fi
+
+if [[ "${ALLOW_DIRTY}" != "0" && "${ALLOW_DIRTY}" != "1" ]]; then
+  printf 'Erro: FLAVOS_ALLOW_DIRTY_BUILD deve ser 0 ou 1.\n' >&2
+  exit 1
+fi
+
+git_command=(git -c safe.directory="${REPO_ROOT}" -C "${REPO_ROOT}")
+build_commit="$("${git_command[@]}" rev-parse HEAD)"
+worktree_status="$("${git_command[@]}" status --porcelain --untracked-files=normal)"
+
+if [[ -n "${worktree_status}" && "${ALLOW_DIRTY}" != "1" ]]; then
+  printf 'Erro: o M0 só pode ser construído a partir de um worktree limpo.\n' >&2
+  printf '%s\n' "${worktree_status}" >&2
+  printf 'Para experimento descartável, defina FLAVOS_ALLOW_DIRTY_BUILD=1.\n' >&2
+  exit 1
+fi
+
+if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
+  SOURCE_DATE_EPOCH="$("${git_command[@]}" log -1 --format=%ct)"
+  export SOURCE_DATE_EPOCH
+fi
+
+if [[ ! "${SOURCE_DATE_EPOCH}" =~ ^[0-9]+$ ]]; then
+  printf 'Erro: SOURCE_DATE_EPOCH deve ser um timestamp Unix.\n' >&2
+  exit 1
+fi
+
+cd "${IMAGE_DIR}"
+rm -f -- "${ARCHIVE_MARKER}"
+
+{
+  printf 'FLAVOS_BUILD_COMMIT=%s\n' "${build_commit}"
+  printf 'SOURCE_DATE_EPOCH=%s\n' "${SOURCE_DATE_EPOCH}"
+  printf 'FLAVOS_BUILD_DIRTY=%s\n' "$([[ -n "${worktree_status}" ]] && printf 1 || printf 0)"
+  printf 'BUILD_STARTED_UTC=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf 'LIVE_BUILD_VERSION='
+  lb --version
+  lb build noauto "$@"
+} 2>&1 | tee build.log

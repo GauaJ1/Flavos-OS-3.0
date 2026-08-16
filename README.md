@@ -19,9 +19,9 @@ inicializar tanto em BIOS quanto em UEFI:
 ISO → kernel Linux → systemd → TTY
 ```
 
-Esta versão do repositório contém somente a fundação documental e a estrutura do
-projeto. A configuração do `live-build`, a geração da ISO e os testes em QEMU
-ainda não foram implementados.
+Esta versão do repositório contém a fundação documental, o laboratório da VM de
+desenvolvimento e a configuração inicial do `live-build`. A primeira ISO e os
+testes de boot do M0 ainda não foram executados.
 
 ## Princípios
 
@@ -39,7 +39,7 @@ ainda não foram implementados.
 ```text
 .
 ├── docs/        # visão, arquitetura, especificações e ADRs
-├── image/       # futura configuração do live-build
+├── image/       # configuração do live-build e laboratório local ignorado
 ├── src/         # futuros componentes Flavos
 ├── packages/    # futuros pacotes próprios
 ├── assets/      # identidade e recursos visuais
@@ -50,12 +50,14 @@ ainda não foram implementados.
 
 ## Documentação
 
+- [Guia oficial de início](docs/BASEIDEIA.md)
 - [Visão](docs/VISION.md)
 - [Arquitetura](docs/ARCHITECTURE.md)
 - [Flavos Flow](docs/FLOW.md)
 - [Interface adaptativa](docs/ADAPTIVE_UI.md)
 - [Hardware](docs/HARDWARE.md)
 - [Build](docs/BUILD.md)
+- [VM de desenvolvimento](docs/DEVELOPMENT_VM.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Architecture Decision Records](docs/adr/README.md)
 

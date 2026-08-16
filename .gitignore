@@ -1,8 +1,19 @@
 # live-build: áreas e produtos gerados
 image/.build/
+image/.vm/
 image/binary/
 image/cache/
 image/chroot/
+image/config/binary
+image/config/bootstrap
+image/config/chroot
+image/config/common
+image/config/source
+image/config/package-lists/live.list.chroot
+image/config/hooks/live/*
+!image/config/hooks/live/flavos-*
+image/config/hooks/normal/*
+!image/config/hooks/normal/flavos-*
 image/local/
 image/tmp/
 image/*.contents
@@ -25,6 +36,10 @@ releases/*.sha256
 releases/*.sha512
 releases/*.xz
 releases/*.zst
+releases/local/
+
+# Marcador local de preservação do último build M0
+image/.m0-last-archive
 
 # Logs, caches e temporários
 *.log

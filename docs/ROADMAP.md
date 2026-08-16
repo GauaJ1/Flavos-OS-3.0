@@ -26,10 +26,11 @@ restauração progressiva/gentil.
 Detectar capacidade gráfica e aplicar automaticamente os perfis ECO, BALANCED e
 FULL, variando efeitos sem remover funcionalidades.
 
-## M5 — Live + Installer
+## M5 — Live consolidado + Installer
 
-Depois da consolidação da base, implementar live boot, instalador, particionamento,
-criação de usuário, bootloader e OOBE.
+Depois da consolidação da base, transformar o live mínimo do M0 em ambiente de
+produto e implementar instalador, particionamento, criação de usuário, bootloader
+e OOBE.
 
 ## M6 — Hardware Lab
 
@@ -43,5 +44,6 @@ de testes.
 
 ## Estado atual
 
-O projeto está em **Foundation / Project Bootstrap v0.1**, preparando o M0. A
-configuração e a execução do build ainda não começaram.
+O projeto está em **Foundation / Project Bootstrap v0.1**, executando o M0. A
+configuração inicial do `live-build` e o laboratório da VM já existem; a primeira
+ISO ainda precisa ser construída e validada.

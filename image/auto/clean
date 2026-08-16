@@ -1,0 +1,68 @@
+#!/bin/sh
+
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+image_dir=$(CDPATH= cd -- "${script_dir}/.." && pwd -P)
+iso_path="${image_dir}/flavos-3.0-m0-amd64.hybrid.iso"
+archive_marker="${image_dir}/.m0-last-archive"
+discard_unarchived=${FLAVOS_DISCARD_UNARCHIVED:-0}
+
+if ! command -v lb >/dev/null 2>&1; then
+  printf 'Erro: live-build não está instalado.\n' >&2
+  exit 1
+fi
+
+if [ "$#" -eq 0 ]; then
+  set -- --purge
+fi
+
+if [ "${discard_unarchived}" != "0" ] && [ "${discard_unarchived}" != "1" ]; then
+  printf 'Erro: FLAVOS_DISCARD_UNARCHIVED deve ser 0 ou 1.\n' >&2
+  exit 1
+fi
+
+if [ -f "${iso_path}" ] && [ "${discard_unarchived}" != "1" ]; then
+  if [ ! -f "${archive_marker}" ]; then
+    printf 'Erro: preserve o build antes da limpeza:\n' >&2
+    printf '  cd .. && ./tools/archive-m0-build.sh\n' >&2
+    exit 1
+  fi
+
+  iso_sha512=$(sha512sum -- "${iso_path}" | awk '{print $1}')
+  archived_sha512=$(sed -n 's/^ISO_SHA512=//p' "${archive_marker}")
+  archive_dir=$(sed -n 's/^ARCHIVE_DIR=//p' "${archive_marker}")
+  archived_iso="${archive_dir}/$(basename -- "${iso_path}")"
+
+  if [ -z "${archive_dir}" ] || [ "${iso_sha512}" != "${archived_sha512}" ] || \
+    [ ! -f "${archived_iso}" ]; then
+    printf 'Erro: o marcador de arquivamento não corresponde à ISO atual.\n' >&2
+    exit 1
+  fi
+
+  copied_sha512=$(sha512sum -- "${archived_iso}" | awk '{print $1}')
+  if [ "${copied_sha512}" != "${iso_sha512}" ]; then
+    printf 'Erro: a cópia arquivada falhou na validação de checksum.\n' >&2
+    exit 1
+  fi
+elif [ -f "${iso_path}" ]; then
+  printf 'Aviso: descartando ISO não arquivada por solicitação explícita.\n' >&2
+fi
+
+cd "${image_dir}"
+lb clean noauto "$@"
+
+for hook_dir in config/hooks/live config/hooks/normal; do
+  if [ -d "${hook_dir}" ]; then
+    find "${hook_dir}" -maxdepth 1 -type l -delete
+  fi
+done
+
+rm -f \
+  config/binary \
+  config/bootstrap \
+  config/chroot \
+  config/common \
+  config/source \
+  config/package-lists/live.list.chroot \
+  "${archive_marker}"
