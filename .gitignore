@@ -21,6 +21,8 @@ image/*.files
 image/*.iso
 image/*.list
 image/*.packages
+image/*.packages.*
+image/*.modified_timestamps
 image/build.log
 
 # Imagens, discos e firmware temporário de máquinas virtuais

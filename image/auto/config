@@ -9,9 +9,16 @@ cd "${image_dir}"
 
 remove_generated_hooks() {
   for hook_dir in config/hooks/live config/hooks/normal; do
-    if [ -d "${hook_dir}" ]; then
-      find "${hook_dir}" -maxdepth 1 -type l -delete
-    fi
+    [ -d "${hook_dir}" ] || continue
+    for hook_path in "${hook_dir}"/*; do
+      [ -L "${hook_path}" ] || continue
+      hook_target=$(readlink -- "${hook_path}")
+      case "${hook_target}" in
+        /usr/share/live/build/hooks/*)
+          rm -f -- "${hook_path}"
+          ;;
+      esac
+    done
   done
 }
 
@@ -56,5 +63,5 @@ lb config noauto \
   --iso-application "Flavos OS 3.0 M0" \
   --iso-publisher "Flavos OS Project" \
   --iso-volume "FLAVOS_3_0_M0" \
-  --bootappend-live "boot=live components hostname=flavos username=flavos systemd.unit=multi-user.target" \
+  --bootappend-live "boot=live components hostname=flavos username=flavos systemd.unit=multi-user.target console=tty0 console=ttyS0,115200n8 flavos.m0.probe=1" \
   "$@"
