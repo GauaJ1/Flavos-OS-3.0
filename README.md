@@ -1,7 +1,7 @@
 # Flavos OS 3.0
 
-> **Estado:** Foundation / Project Bootstrap v0.1<br>
-> **Milestone atual:** M0 — Bootstrap<br>
+> **Estado:** Foundation / Project Bootstrap v0.1 — concluído<br>
+> **Milestone atual:** M0 — Bootstrap (concluído; M1 não iniciado)<br>
 > **Base:** Debian 13 “Trixie”<br>
 > **Arquitetura:** amd64 / x86-64
 
@@ -10,18 +10,20 @@ mínima do Debian. O projeto não parte de um desktop Debian pronto: sua evoluç
 segue a sequência **Debian mínimo → infraestrutura Linux → componentes Flavos →
 Flavos Desktop**.
 
-## Objetivo atual
+## Resultado do M0
 
-O M0 deve produzir, de forma reproduzível, uma ISO híbrida mínima capaz de
-inicializar tanto em BIOS quanto em UEFI:
+O M0 produziu uma ISO híbrida mínima capaz de inicializar tanto em BIOS quanto
+em UEFI:
 
 ```text
 ISO → kernel Linux → systemd → TTY
 ```
 
-Esta versão do repositório contém a fundação documental, o laboratório da VM de
-desenvolvimento e a configuração inicial do `live-build`. A primeira ISO e os
-testes de boot do M0 ainda não foram executados.
+O bootstrap foi validado em duas passagens limpas do commit
+`fedc240969fe1a1bba8d694159fb657802bf4b9f`. A estrutura da ISO e os boots BIOS
+e UEFI foram verificados pelo laboratório automatizado; hashes, manifestos e
+evidências estão no [relatório de encerramento do M0](docs/M0-REPORT.md). A
+conclusão do M0 não inicia o M1.
 
 ## Princípios
 
@@ -57,6 +59,7 @@ testes de boot do M0 ainda não foram executados.
 - [Interface adaptativa](docs/ADAPTIVE_UI.md)
 - [Hardware](docs/HARDWARE.md)
 - [Build](docs/BUILD.md)
+- [Relatório de encerramento do M0](docs/M0-REPORT.md)
 - [VM de desenvolvimento](docs/DEVELOPMENT_VM.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Architecture Decision Records](docs/adr/README.md)

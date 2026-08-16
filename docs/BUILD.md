@@ -2,9 +2,10 @@
 
 ## Estado desta etapa
 
-A configuração inicial do pipeline está versionada em `image/auto/` e
-`image/config/`. Ela ainda precisa ser executada e validada dentro da VM Debian 13
-antes de ser considerada o primeiro build concluído do M0.
+O pipeline do M0 foi executado e validado em duas passagens limpas do commit
+`fedc240969fe1a1bba8d694159fb657802bf4b9f`. Os hashes, manifestos, versões das
+ferramentas e evidências BIOS/UEFI estão no [relatório do M0](M0-REPORT.md).
+Este encerramento não inicia o M1.
 
 ## Estratégia aprovada
 
@@ -51,7 +52,7 @@ sudo lb build
 Os scripts automáticos usam `noauto` internamente para evitar recursão. O resultado
 esperado é `image/flavos-3.0-m0-amd64.hybrid.iso`.
 
-Antes do primeiro build, a estrutura versionada pode ser validada sem privilégios:
+A estrutura versionada deve ser validada sem privilégios antes de cada build:
 
 ```bash
 ./tests/validate-m0-config.sh
@@ -87,6 +88,37 @@ No M0, firmware para hardware físico, Debian Installer e Secure Boot permanecem
 desabilitados. O objetivo é validar exclusivamente o live boot mínimo em QEMU com
 BIOS e UEFI; essas limitações não definem a política dos milestones posteriores.
 
+## Validar a ISO e o boot
+
+A estrutura interna e os dois caminhos de firmware são validados com:
+
+```bash
+./tests/validate-m0-iso.sh image/flavos-3.0-m0-amd64.hybrid.iso
+./tools/test-m0-boot.sh all
+```
+
+O validador da ISO compara o manifesto interno ao manifesto externo, confirma a
+imagem híbrida, as entradas El Torito BIOS/UEFI, kernel, initrd, squashfs, pacotes
+obrigatórios e ausência de stack gráfica. O harness de boot aceita `all`, `bios`
+ou `uefi`; deve ser executado como usuário normal, nunca com `sudo`. Por padrão,
+ele limita cada modo a 180 segundos e preserva logs, probes e desafios TTY em
+`releases/local/m0/boot-tests/`.
+
+Para testar outro artefato, informe `FLAVOS_M0_ISO=/caminho/imagem.hybrid.iso`.
+O manifesto correspondente pode ser indicado ao validador com
+`FLAVOS_M0_MANIFEST=/caminho/imagem.packages`.
+
+### Serial exclusiva do laboratório M0
+
+A imagem técnica do M0 inclui `console=ttyS0`, o probe condicionado por
+`flavos.m0.probe=1` e um drop-in de autologin do usuário live `flavos` em
+`serial-getty@ttyS0.service`. Isso existe exclusivamente para o harness comprovar
+entrada e saída reais no TTY por um desafio bidirecional. Não é política de login,
+segurança ou produto do Flavos OS e deve ser removido ou redesenhado antes de uma
+imagem destinada a usuários. O harness também envia `Enter` pelo monitor QEMU
+para selecionar a entrada live sem versionar uma decisão de timeout dos menus
+Syslinux/GRUB.
+
 ## Critério de reprodutibilidade do M0
 
 1. construir a imagem a partir de um checkout limpo;
@@ -98,6 +130,9 @@ BIOS e UEFI; essas limitações não definem a política dos milestones posterio
 7. limpar os artefatos de build;
 8. repetir o build completo, arquivamento e testes;
 9. registrar diferenças, problemas e resultados.
+
+O cumprimento desses critérios está registrado no
+[relatório de encerramento do M0](M0-REPORT.md).
 
 Não fazem parte do M0: ambiente gráfico, shell Flavos, Flow, experiência
 adaptativa ou instalador.

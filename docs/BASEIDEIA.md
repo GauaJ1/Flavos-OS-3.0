@@ -597,10 +597,13 @@ Essas deverão ser consideradas as referências iniciais, preferindo sempre docu
 
 # 15. Ponto de partida prático do M0
 
-## 15.1 Situação atual
+## 15.1 Situação após o encerramento do M0
 
-O projeto já possui a fundação documental, a estrutura inicial e o primeiro ADR.
-A imagem de referência está disponível em:
+O plano deste capítulo foi concluído em duas passagens limpas do commit
+`fedc240969fe1a1bba8d694159fb657802bf4b9f`; resultados e evidências estão no
+[relatório do M0](M0-REPORT.md). O M1 ainda não foi iniciado.
+
+A imagem netinst de referência usada para preparar o laboratório está disponível em:
 
 ```text
 image/debian-13.6.0-amd64-netinst.iso
@@ -674,7 +677,7 @@ versões do Debian, `live-build`, QEMU, xorriso e squashfs-tools.
 
 ### Etapa C — Criar o Flavos Build System mínimo
 
-O próximo conjunto de mudanças versionadas deverá conter:
+O conjunto de mudanças versionado para o M0 contém:
 
 - `image/auto/config`: configuração repetível do `lb config`;
 - `image/auto/build`: comando único para executar o build;
@@ -712,6 +715,17 @@ Executar a mesma ISO em duas VMs descartáveis:
 
 1. QEMU com BIOS legado;
 2. QEMU com UEFI por meio do OVMF.
+
+Os comandos verificados são:
+
+```bash
+./tests/validate-m0-iso.sh image/flavos-3.0-m0-amd64.hybrid.iso
+./tools/test-m0-boot.sh all
+```
+
+O autologin em `ttyS0`, o probe `flavos.m0.probe=1` e o console serial pertencem
+somente ao laboratório técnico do M0. Eles permitem ao harness executar um desafio
+bidirecional no TTY e não estabelecem política de autenticação para imagens de produto.
 
 Nos dois modos, registrar evidências de que:
 
@@ -752,18 +766,17 @@ snapshots de pacotes exigirão uma decisão específica antes de releases públi
 - relatório com as duas execuções do build e os testes de boot;
 - documentação `BUILD.md` atualizada com comandos realmente verificados.
 
-## 15.5 Critério para avançar
+Todos esses entregáveis foram cumpridos e consolidados no
+[relatório do M0](M0-REPORT.md).
 
-O M1 só começa quando qualquer colaborador puder partir de uma VM Debian 13 limpa,
-seguir o repositório e reconstruir uma ISO que inicialize até o TTY em BIOS e UEFI.
+## 15.5 Gate do M0
 
-Até esse gate ser cumprido, não serão iniciados Flavos Shell, Flow, Adaptive
-Experience, stack gráfica ou instalador.
+O gate técnico foi cumprido: a partir de uma VM Debian 13, o repositório reconstrói
+uma ISO que chega ao TTY em BIOS e UEFI. Isso encerra o M0, mas não inicia
+automaticamente o M1.
 
-## 15.6 Próxima ação concreta
+## 15.6 Estado após o encerramento
 
-A VM `flavos-build-trixie`, seus scripts de laboratório e a configuração inicial
-em `image/auto/` e `image/config/` já foram preparados. O próximo trabalho é
-concluir a instalação das dependências dentro da VM, versionar o estado atual e
-executar o primeiro build limpo. A ISO resultante deverá ser arquivada antes de
-qualquer limpeza e então validada em BIOS e UEFI.
+O projeto permanece no marco M0 concluído. Nenhuma escolha de display stack,
+compositor, toolkit, login gráfico ou sessão foi feita neste encerramento. O M1 só
+poderá começar por decisão explícita, pesquisa e ADRs próprios.

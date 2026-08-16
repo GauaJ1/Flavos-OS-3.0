@@ -1,9 +1,13 @@
 # Roadmap do Flavos OS 3.0
 
-## M0 — Bootstrap
+## M0 — Bootstrap (concluído)
 
-Produzir uma ISO híbrida reproduzível que inicialize em BIOS e UEFI até kernel,
-systemd e TTY. Nenhuma interface Flavos será incluída.
+Produzir uma ISO híbrida funcionalmente reproduzível que inicialize em BIOS e
+UEFI até kernel, systemd e TTY. Nenhuma interface Flavos será incluída.
+
+Concluído em duas passagens limpas do commit
+`fedc240969fe1a1bba8d694159fb657802bf4b9f`, com validação da estrutura da ISO e
+boot até TTY em BIOS e UEFI. Consulte o [relatório do M0](M0-REPORT.md).
 
 ## M1 — Graphical Foundation
 
@@ -44,6 +48,7 @@ de testes.
 
 ## Estado atual
 
-O projeto está em **Foundation / Project Bootstrap v0.1**, executando o M0. A
-configuração inicial do `live-build` e o laboratório da VM já existem; a primeira
-ISO ainda precisa ser construída e validada.
+O projeto concluiu **Foundation / Project Bootstrap v0.1** e permanece no marco
+**M0 — Bootstrap concluído**. O M1 ainda não foi iniciado; seu começo exige uma
+decisão explícita, pesquisa e ADRs, sem escolhas antecipadas de stack gráfica,
+compositor, toolkit, display manager ou sessão.
