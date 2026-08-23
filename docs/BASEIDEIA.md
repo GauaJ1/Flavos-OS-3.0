@@ -2,7 +2,7 @@
 
 ## Foundation / Project Bootstrap v0.1
 
-> **Estado do projeto:** M0 concluído; M1 em andamento; M1.1 em implementação.
+> **Estado do projeto:** M0 e M1.1 concluídos; M1 em andamento; M1.2 não iniciado.
 
 ### 1. Base oficial
 
@@ -262,7 +262,7 @@ Nenhum componente deve ser escolhido simplesmente porque “é comum em Linux”
 
 Cada decisão deverá ser documentada.
 
-### Recorte atual: M1.1 — Wayland Display Foundation
+### M1.1 — Wayland Display Foundation (concluído)
 
 O [ADR-002](adr/ADR-002-display-stack.md) aprovou para a fundação inicial:
 
@@ -286,8 +286,10 @@ Foot
   continuam pendentes.
 
 O M1.1 não inclui áudio, rede, energia, portais, desktop environment, painel,
-launcher ou qualquer interface Flavos. Ele permanece em implementação: somente
-uma construção e os boots de aceitação poderão produzir um resultado PASS.
+launcher ou qualquer interface Flavos. Duas construções limpas do commit
+`54fff9a5816a12853a7213062aa6f4f73b695125` passaram na validação estrutural e
+nos boots BIOS/UEFI. Os resultados estão no
+[relatório de encerramento do M1.1](M1.1-REPORT.md). O M1.2 não foi iniciado.
 
 ---
 
@@ -636,7 +638,8 @@ Essas deverão ser consideradas as referências iniciais, preferindo sempre docu
 O plano deste capítulo foi concluído em duas passagens limpas do commit
 `fedc240969fe1a1bba8d694159fb657802bf4b9f`; resultados e evidências estão no
 [relatório do M0](M0-REPORT.md). Depois desse encerramento, o M1 foi aberto
-explicitamente e o M1.1 entrou em implementação.
+explicitamente e o M1.1 foi concluído conforme o
+[relatório próprio](M1.1-REPORT.md).
 
 A imagem netinst de referência usada para preparar o laboratório está disponível em:
 
@@ -812,8 +815,8 @@ automaticamente o M1. A abertura do M1 ocorreu depois, por decisão explícita.
 
 ## 15.6 Estado após o encerramento
 
-O M0 permanece concluído e imutável. O projeto está agora no M1, com o M1.1 em
-implementação. Wayland, Labwc, wlroots, XWayland disponível, logind e a sessão
-D-Bus foram registrados no [ADR-002](adr/ADR-002-display-stack.md); toolkit,
-display manager, sessão definitiva e M1.2 continuam pendentes. Nenhum PASS do
-M1.1 é alegado antes dos builds e boots de aceitação.
+O M0 permanece concluído e imutável. O projeto está no M1 e concluiu o M1.1.
+Wayland, Labwc, wlroots, XWayland disponível, logind e a sessão D-Bus foram
+registrados no [ADR-002](adr/ADR-002-display-stack.md) e comprovados no
+[relatório do M1.1](M1.1-REPORT.md). Toolkit, display manager, sessão definitiva
+e M1.2 continuam pendentes; o encerramento do M1.1 não inicia o próximo recorte.

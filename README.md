@@ -1,7 +1,7 @@
 # Flavos OS 3.0
 
 > **Estado:** M1 — Graphical Foundation em andamento<br>
-> **Milestone atual:** M1.1 — Wayland Display Foundation (em implementação)<br>
+> **Milestone atual:** M1.1 — Wayland Display Foundation (concluído; M1.2 não iniciado)<br>
 > **Base:** Debian 13 “Trixie”<br>
 > **Arquitetura:** amd64 / x86-64
 
@@ -24,20 +24,25 @@ O bootstrap foi validado em duas passagens limpas do commit
 e UEFI foram verificados pelo laboratório automatizado; hashes, manifestos e
 evidências estão no [relatório de encerramento do M0](docs/M0-REPORT.md).
 
-## Trabalho atual: M1.1
+## Resultado do M1.1
 
 O M1 foi aberto explicitamente depois do encerramento do M0. Seu primeiro
-recorte implementa e verifica somente:
+recorte comprovou:
 
 ```text
 login/TTY → Labwc → socket Wayland → Foot
 ```
 
 Wayland é o protocolo primário; Labwc 0.8.3 sobre wlroots 0.18 é o compositor
-técnico inicial. XWayland fica disponível, mas a prova de uma aplicação X11
-pertence ao M1.2. A imagem ainda não inclui desktop environment, display manager,
-painel, launcher, toolkit ou sessão Flavos definitiva. Consulte o
-[ADR-002](docs/adr/ADR-002-display-stack.md).
+técnico inicial. Duas construções limpas do commit
+`54fff9a5816a12853a7213062aa6f4f73b695125` passaram na validação estrutural e
+nos boots BIOS/UEFI, incluindo entrada real, logout e retorno ao TTY. Consulte o
+[relatório de encerramento do M1.1](docs/M1.1-REPORT.md).
+
+XWayland fica disponível, mas a prova de uma aplicação X11 pertence ao M1.2,
+que ainda não foi iniciado. A imagem não inclui desktop environment, display
+manager, painel, launcher, toolkit ou sessão Flavos definitiva. A decisão da
+stack está no [ADR-002](docs/adr/ADR-002-display-stack.md).
 
 ## Princípios
 
@@ -74,6 +79,7 @@ painel, launcher, toolkit ou sessão Flavos definitiva. Consulte o
 - [Hardware](docs/HARDWARE.md)
 - [Build](docs/BUILD.md)
 - [Relatório de encerramento do M0](docs/M0-REPORT.md)
+- [Relatório de encerramento do M1.1](docs/M1.1-REPORT.md)
 - [VM de desenvolvimento](docs/DEVELOPMENT_VM.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Architecture Decision Records](docs/adr/README.md)

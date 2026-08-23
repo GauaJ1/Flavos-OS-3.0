@@ -25,8 +25,8 @@
 ```
 
 Esta figura descreve a direção conceitual. O M0 aprovou Debian, kernel, systemd e
-o destino TTY; o M1.1 está acrescentando a fundação gráfica técnica abaixo da
-futura Flavos Session.
+o destino TTY; o M1.1 comprovou a fundação gráfica técnica abaixo da futura
+Flavos Session.
 
 ## Fundação gráfica inicial
 
@@ -46,7 +46,8 @@ Wayland é o protocolo primário e Labwc é o compositor técnico inicial. A ses
 começa no login do TTY: `libpam-systemd` registra a sessão no
 `systemd-logind`, que permanece o único broker de seat. `dbus-user-session`
 fornece o barramento integrado a `systemd --user`. Essa composição é uma
-instrumentação de M1.1, não a Flavos Session definitiva.
+instrumentação encerrada do M1.1, não a Flavos Session definitiva. Os resultados
+estão no [relatório do M1.1](M1.1-REPORT.md).
 
 XWayland está disponível para a futura compatibilidade, mas uma aplicação X11 só
 será aceita no M1.2. O renderer normal não é forçado. O modo

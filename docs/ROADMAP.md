@@ -15,7 +15,7 @@ boot até TTY em BIOS e UEFI. Consulte o [relatório do M0](M0-REPORT.md).
 compositor, login e sessão, entrada, compatibilidade, áudio, rede e gerenciamento
 de energia em recortes verificáveis.
 
-### M1.1 — Wayland Display Foundation (em implementação)
+### M1.1 — Wayland Display Foundation (concluído)
 
 Partindo exclusivamente do M0 aprovado, comprovar:
 
@@ -29,8 +29,13 @@ sessão usa `systemd-logind`/`libpam-systemd` para seat e login e
 `dbus-user-session` para a integração D-Bus com `systemd --user`.
 
 XWayland fica disponível na imagem, mas a execução e validação de uma aplicação
-X11 pertencem ao M1.2. O M1.1 ainda não foi concluído e não autoriza avançar para
-áudio, rede, energia, portais ou componentes Flavos.
+X11 pertencem ao M1.2. O recorte foi concluído em duas construções limpas do
+commit `54fff9a5816a12853a7213062aa6f4f73b695125`, com validação estrutural e
+boots BIOS/UEFI até Labwc, Wayland, Foot, entrada real, logout e retorno ao TTY.
+Consulte o [relatório do M1.1](M1.1-REPORT.md).
+
+Este encerramento não inicia áudio, rede, energia, portais, componentes Flavos
+ou o M1.2.
 
 ### M1.2 — Compatibilidade (pendente)
 
@@ -72,7 +77,7 @@ de testes.
 
 ## Estado atual
 
-O projeto concluiu **M0 — Bootstrap** e iniciou **M1 — Graphical Foundation**. O
-recorte atual é **M1.1 — Wayland Display Foundation, em implementação**; nenhum
-PASS é alegado antes da construção e dos boots de aceitação. Toolkit, display
-manager, sessão definitiva e M1.2 permanecem pendentes.
+O projeto concluiu **M0 — Bootstrap** e **M1.1 — Wayland Display Foundation**.
+O M1 permanece em andamento, mas o M1.2 ainda não foi iniciado. Toolkit,
+display manager, sessão definitiva, áudio, rede, energia, portais e componentes
+Flavos permanecem pendentes.

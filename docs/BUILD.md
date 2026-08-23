@@ -5,9 +5,10 @@
 O pipeline do M0 foi executado e validado em duas passagens limpas do commit
 `fedc240969fe1a1bba8d694159fb657802bf4b9f`. Os hashes, manifestos, versões das
 ferramentas e evidências BIOS/UEFI estão no [relatório do M0](M0-REPORT.md).
-Depois desse encerramento, o M1 foi aberto explicitamente. O recorte atual é
-**M1.1 — Wayland Display Foundation, em implementação**; nenhuma construção ou
-validação M1 é declarada como concluída neste documento.
+Depois desse encerramento, o M1 foi aberto explicitamente. O recorte
+**M1.1 — Wayland Display Foundation** foi concluído em duas passagens limpas do
+commit `54fff9a5816a12853a7213062aa6f4f73b695125`; hashes, manifestos e evidências
+BIOS/UEFI estão no [relatório do M1.1](M1.1-REPORT.md). O M1.2 não foi iniciado.
 
 ## Estratégia aprovada
 
@@ -43,7 +44,7 @@ sudo lb build
 ```
 
 O commit registrado no relatório conserva as opções exatas usadas no M0. A
-configuração ativa em `image/auto/config` evolui agora para o M1.1, preservando a
+configuração ativa em `image/auto/config` evoluiu para o M1.1, preservando a
 mesma mecânica de construção dentro da VM:
 
 ```bash
@@ -55,7 +56,7 @@ sudo lb build
 
 Os scripts automáticos usam `noauto` internamente para evitar recursão. No M0, o
 resultado foi `image/flavos-3.0-m0-amd64.hybrid.iso`; no recorte ativo, o
-resultado esperado é `image/flavos-3.0-m1.1-amd64.hybrid.iso`.
+resultado verificado é `image/flavos-3.0-m1.1-amd64.hybrid.iso`.
 
 A estrutura do M0 foi validada sem privilégios, no commit encerrado, com:
 
@@ -93,14 +94,14 @@ No M0, firmware para hardware físico, Debian Installer e Secure Boot permanecem
 desabilitados. O objetivo é validar exclusivamente o live boot mínimo em QEMU com
 BIOS e UEFI; essas limitações não definem a política dos milestones posteriores.
 
-## Fluxo esperado do M1.1 (em desenvolvimento)
+## Fluxo verificado do M1.1 (concluído)
 
 O M1.1 preserva o gate M0 e acrescenta a menor stack necessária para comprovar
 `login/TTY → Labwc → Wayland → Foot`. A imagem técnica não adiciona desktop
 environment, display manager, painel, launcher ou componentes visuais Flavos.
 XWayland fica disponível, mas o teste de uma aplicação X11 é escopo do M1.2.
 
-A interface prevista para configuração, validação, arquivamento e boot é:
+A interface verificada para configuração, validação, arquivamento e boot é:
 
 ```bash
 ./tests/validate-m1-config.sh
@@ -116,12 +117,11 @@ cd ..
 ./tools/test-m1-boot.sh all
 ```
 
-Esses comandos descrevem o contrato em implementação e verificação. A simples
-presença dos scripts ou da ISO não significa PASS. Antes do encerramento, duas
-passagens limpas e independentes deverão ser arquivadas e a mesma ISO de cada
-passagem deverá passar nos caminhos BIOS e UEFI.
+Esses comandos foram executados em duas passagens limpas e independentes. Cada
+ISO foi arquivada e passou nos caminhos BIOS e UEFI; a proveniência e os
+resultados estão no [relatório de encerramento](M1.1-REPORT.md).
 
-O harness M1.1 deve ser executado como usuário normal. Ele expõe uma GPU
+O harness M1.1 é executado como usuário normal. Ele expõe uma GPU
 `virtio-vga` com scanout DRM, teclado e mouse virtuais, mantém a ISO somente
 leitura e a rede desabilitada e preserva em
 `releases/local/m1.1/boot-tests/` os logs seriais, probes, nonces, screenshots e
@@ -148,6 +148,16 @@ mas não é fallback automático e não substitui o gate gráfico normal. A deci
 completa está no [ADR-002](adr/ADR-002-display-stack.md).
 
 ## Validar a ISO e o boot
+
+### M1.1 encerrado
+
+O gate M1.1 confirmou em duas passagens limpas: imagem híbrida BIOS/UEFI,
+manifesto interno coerente, Labwc 0.8.3, socket Wayland, Foot, sessão
+`systemd-logind`, D-Bus e `systemd --user`, entrada real de mouse/teclado,
+logout e retorno ao `tty1`. Consulte o [relatório do M1.1](M1.1-REPORT.md).
+
+XWayland foi confirmado como disponível, mas nenhuma aplicação X11 foi executada;
+essa prova pertence ao M1.2, que não foi iniciado.
 
 ### M0 encerrado
 

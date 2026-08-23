@@ -39,10 +39,11 @@ substituir a infraestrutura que o Linux, o Debian e o systemd já fornecem.
 ## Limites atuais
 
 O M0 foi concluído sem desktop, shell, Flow, instalador ou efeitos adaptativos. O
-M1 está em andamento e seu recorte atual, M1.1, acrescenta somente a fundação
+M1 está em andamento e seu primeiro recorte, M1.1, comprovou somente a fundação
 técnica `TTY → Labwc → Wayland → Foot` descrita no
-[ADR-002](adr/ADR-002-display-stack.md).
+[ADR-002](adr/ADR-002-display-stack.md) e no
+[relatório de encerramento](M1.1-REPORT.md).
 
 Essa primeira janela não é ainda o Flavos Desktop e não escolhe toolkit, display
 manager, shell ou sessão definitiva. XWayland fica disponível, mas a
-compatibilidade X11 será testada apenas no M1.2.
+compatibilidade X11 será testada apenas no M1.2, que ainda não foi iniciado.

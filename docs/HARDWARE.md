@@ -21,7 +21,7 @@ Estas configurações são pontos de teste, não requisitos finais publicados:
 O M0 foi exercitado nestes modos; os resultados estão no
 [relatório de encerramento](M0-REPORT.md):
 
-| Firmware | Máquina | Resultado esperado |
+| Firmware | Máquina | Resultado comprovado |
 |---|---|---|
 | BIOS legado | QEMU | kernel, systemd e TTY utilizável |
 | UEFI | QEMU com OVMF | kernel, systemd e TTY utilizável |
@@ -29,12 +29,13 @@ O M0 foi exercitado nestes modos; os resultados estão no
 Máquinas virtuais validam o pipeline e os caminhos de firmware. A homologação de
 hardware antigo requer máquinas físicas em milestones posteriores.
 
-## Matriz de aceitação do M1.1 (em implementação)
+## Matriz encerrada do M1.1
 
-Cada passagem limpa deverá preservar o resultado M0 e exercitar a fundação
-gráfica nos dois caminhos:
+As duas passagens limpas preservaram o resultado M0 e exercitaram a fundação
+gráfica nos dois caminhos. Os resultados estão no
+[relatório do M1.1](M1.1-REPORT.md):
 
-| Firmware | Máquina | Resultado esperado |
+| Firmware | Máquina | Resultado comprovado |
 |---|---|---|
 | BIOS legado | QEMU | TTY utilizável, sessão logind, output DRM, Labwc, socket Wayland, entrada e Foot |
 | UEFI | QEMU com OVMF | TTY utilizável, sessão logind, output DRM, Labwc, socket Wayland, entrada e Foot |
@@ -45,9 +46,10 @@ M1.2. Uma execução manual com `WLR_RENDERER=pixman` pode fornecer diagnóstico
 software rendering, mas não conta como fallback nem substitui o renderer normal
 no gate.
 
-Esta matriz ainda não possui resultado PASS. Compatibilidade com GPUs antigas
+Esta matriz recebeu PASS nas quatro execuções. Compatibilidade com GPUs antigas
 será medida em hardware físico antes de qualquer decisão sobre Xorg completo ou
-fallback automático.
+fallback automático. O encerramento do laboratório QEMU não constitui
+homologação de hardware físico.
 
 ## Critérios a medir futuramente
 
