@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<labwc_config>
+  <keyboard>
+    <default />
+    <keybind key="W-Return">
+      <action name="Execute" command="foot" />
+    </keybind>
+    <keybind key="C-A-BackSpace">
+      <action name="Exit" />
+    </keybind>
+  </keyboard>
+</labwc_config>

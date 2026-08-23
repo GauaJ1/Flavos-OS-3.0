@@ -1,0 +1,41 @@
+#!/bin/bash
+
+set -Eeuo pipefail
+export LC_ALL=C
+umask 077
+
+readonly STATE_DIR="${XDG_RUNTIME_DIR}/flavos-m1"
+
+publish_text() {
+  local destination=$1
+  shift
+  local temporary="${destination}.tmp.$$"
+
+  printf '%s\n' "$@" >"${temporary}"
+  chmod 0600 "${temporary}"
+  mv -f -- "${temporary}" "${destination}"
+}
+
+printf '\033[2J\033[H'
+printf 'Flavos OS 3.0 M1.1 — Labwc encerrado; retorno ao tty1.\n\n'
+
+# Remove Enters usados para atravessar os menus de boot que possam ter ficado
+# na fila do console antes de o kernel assumir completamente o teclado.
+while IFS= read -r -t 0.05 _discard; do
+  :
+done
+
+printf 'Digite o segundo desafio numérico e pressione Enter: '
+publish_text "${STATE_DIR}/tty-ready" ready
+IFS= read -r typed_nonce
+
+if [[ ! "${typed_nonce}" =~ ^[0-9]{8,12}$ ]]; then
+  publish_text "${STATE_DIR}/tty-failure" tty_nonce_format
+  exit 1
+fi
+
+publish_text "${STATE_DIR}/tty-ok" "${typed_nonce}"
+printf '\nRetorno ao TTY confirmado.\n'
+
+# Mantém a sessão PAM/logind e o VT ativos até o harness encerrar a VM.
+exec bash --noprofile --norc

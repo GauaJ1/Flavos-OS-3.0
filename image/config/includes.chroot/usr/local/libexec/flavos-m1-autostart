@@ -1,0 +1,87 @@
+#!/bin/bash
+
+set -Eeuo pipefail
+umask 077
+
+readonly STATE_DIR="${XDG_RUNTIME_DIR}/flavos-m1"
+install -d -m 0700 -- "${STATE_DIR}"
+
+publish_text() {
+  local destination=$1
+  shift
+  local temporary="${destination}.tmp.$$"
+
+  printf '%s\n' "$@" >"${temporary}"
+  chmod 0600 "${temporary}"
+  mv -f -- "${temporary}" "${destination}"
+}
+
+publish_command_result() {
+  local output_path=$1
+  local status_path=$2
+  shift 2
+  local output_tmp="${output_path}.tmp.$$"
+  local command_status
+
+  set +e
+  "$@" >"${output_tmp}" 2>&1
+  command_status=$?
+  set -e
+  chmod 0600 "${output_tmp}"
+  mv -f -- "${output_tmp}" "${output_path}"
+  publish_text "${status_path}" "${command_status}"
+}
+
+session_env_tmp="${STATE_DIR}/session.env.tmp.$$"
+{
+  printf 'WAYLAND_DISPLAY=%s\n' "${WAYLAND_DISPLAY:-}"
+  printf 'DISPLAY=%s\n' "${DISPLAY:-}"
+  printf 'XDG_RUNTIME_DIR=%s\n' "${XDG_RUNTIME_DIR:-}"
+  printf 'XDG_SESSION_ID=%s\n' "${XDG_SESSION_ID:-unknown}"
+  printf 'XDG_SESSION_TYPE=%s\n' "${XDG_SESSION_TYPE:-}"
+  printf 'DBUS_SESSION_BUS_ADDRESS=%s\n' "${DBUS_SESSION_BUS_ADDRESS:-}"
+  printf 'LABWC_PID=%s\n' "${LABWC_PID:-}"
+  printf 'READY_UPTIME=%s\n' "$(cut -d' ' -f1 /proc/uptime)"
+} >"${session_env_tmp}"
+chmod 0600 "${session_env_tmp}"
+mv -f -- "${session_env_tmp}" "${STATE_DIR}/session.env"
+
+publish_command_result \
+  "${STATE_DIR}/wayland-info.txt" \
+  "${STATE_DIR}/wayland-info.status" \
+  wayland-info
+
+systemd_env_path="${STATE_DIR}/systemd-user.env"
+systemd_env_tmp="${systemd_env_path}.tmp.$$"
+systemd_user_status=1
+systemd_deadline=$((SECONDS + 15))
+while ((SECONDS < systemd_deadline)); do
+  set +e
+  systemctl --user show-environment >"${systemd_env_tmp}" 2>&1
+  systemd_user_status=$?
+  set -e
+  if ((systemd_user_status == 0)) && \
+    grep -Fxq "WAYLAND_DISPLAY=${WAYLAND_DISPLAY}" "${systemd_env_tmp}"; then
+    break
+  fi
+  sleep 0.1
+done
+chmod 0600 "${systemd_env_tmp}"
+mv -f -- "${systemd_env_tmp}" "${systemd_env_path}"
+publish_text "${STATE_DIR}/systemd-user.status" "${systemd_user_status}"
+
+publish_command_result \
+  "${STATE_DIR}/dbus-user.txt" \
+  "${STATE_DIR}/dbus-user.status" \
+  dbus-send --session --type=method_call --print-reply \
+    --dest=org.freedesktop.DBus / org.freedesktop.DBus.ListNames
+
+foot \
+  --config=/etc/flavos/foot-m1.ini \
+  --fullscreen \
+  --app-id=flavos-m1-foot \
+  --title='Flavos OS 3.0 M1.1 Display Probe' \
+  /usr/local/libexec/flavos-m1-foot-challenge \
+  >"${STATE_DIR}/foot.log" 2>&1 &
+
+publish_text "${STATE_DIR}/foot.pid" "$!"

@@ -5,27 +5,166 @@ set -Eeuo pipefail
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly IMAGE_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
 readonly REPO_ROOT="$(cd -- "${IMAGE_DIR}/.." && pwd -P)"
-readonly ARCHIVE_MARKER="${IMAGE_DIR}/.m0-last-archive"
+readonly ARCHIVE_MARKER="${IMAGE_DIR}/.m1-last-archive"
 readonly ALLOW_DIRTY="${FLAVOS_ALLOW_DIRTY_BUILD:-0}"
+readonly EXPECTED_BOOTAPPEND='boot=live components hostname=flavos username=flavos systemd.unit=multi-user.target console=tty0 console=ttyS0,115200n8 flavos.m1.probe=1'
+readonly LIVE_PACKAGE_LIST="${IMAGE_DIR}/config/package-lists/live.list.chroot"
+
+readonly -a GENERATED_CONFIG_FILES=(
+  "${IMAGE_DIR}/config/common"
+  "${IMAGE_DIR}/config/bootstrap"
+  "${IMAGE_DIR}/config/chroot"
+  "${IMAGE_DIR}/config/binary"
+  "${IMAGE_DIR}/config/source"
+)
+
+readonly -a CONFIG_EXPECTATIONS=(
+  LB_APT_RECOMMENDS true
+  LB_INITRAMFS live-boot
+  LB_INITSYSTEM systemd
+  LB_MODE debian
+  LB_SYSTEM live
+  LB_IMAGE_NAME flavos-3.0-m1.1
+  LB_UTC_TIME true
+  LB_ARCHITECTURE amd64
+  LB_DISTRIBUTION trixie
+  LB_ARCHIVE_AREAS main
+  LB_LINUX_FLAVOURS_WITH_ARCH amd64
+  LB_SECURITY true
+  LB_UPDATES true
+  LB_IMAGE_TYPE iso-hybrid
+  LB_BOOTAPPEND_LIVE "${EXPECTED_BOOTAPPEND}"
+  LB_BOOTLOADER_BIOS syslinux
+  LB_BOOTLOADER_EFI grub-efi
+  LB_BOOTLOADERS 'syslinux grub-efi'
+  LB_CHECKSUMS sha256
+  LB_BUILD_WITH_CHROOT true
+  LB_DEBIAN_INSTALLER none
+  LB_ISO_APPLICATION 'Flavos OS 3.0 M1.1'
+  LB_ISO_PUBLISHER 'Flavos OS Project'
+  LB_ISO_VOLUME FLAVOS_3_0_M1_1
+  LB_FIRMWARE_BINARY false
+  LB_FIRMWARE_CHROOT false
+  LB_UEFI_SECURE_BOOT disable
+  LB_SOURCE false
+)
+
+fail() {
+  printf 'Erro: %s\n' "$*" >&2
+  exit 1
+}
+
+unquote_value() {
+  local raw_value=$1
+
+  case "${raw_value}" in
+    \"*\") raw_value="${raw_value:1:${#raw_value}-2}" ;;
+    \'*\') raw_value="${raw_value:1:${#raw_value}-2}" ;;
+  esac
+
+  printf '%s' "${raw_value}"
+}
+
+effective_config=()
+generated_input_inventory=()
+
+validate_effective_config() {
+  local key=$1
+  local expected=$2
+  local raw_value value
+  local -a assignments=()
+
+  mapfile -t assignments < <(
+    grep -h -E "^${key}=" "${GENERATED_CONFIG_FILES[@]}" || true
+  )
+
+  ((${#assignments[@]} == 1)) || \
+    fail "a configuração efetiva deve conter exatamente uma atribuição ${key}"
+
+  raw_value="${assignments[0]#*=}"
+  value="$(unquote_value "${raw_value}")"
+  [[ "${value}" == "${expected}" ]] || \
+    fail "configuração efetiva divergente: ${key}=${value@Q}; esperado ${expected@Q}"
+
+  effective_config+=("${key}=${value}")
+}
+
+validate_generated_inputs() {
+  local actual_live_packages expected_live_packages
+  local scope hook_dir hook_path hook_name hook_target hook_checksum
+
+  [[ -f "${LIVE_PACKAGE_LIST}" && ! -L "${LIVE_PACKAGE_LIST}" ]] || \
+    fail 'lista live gerada ausente ou inválida; execute lb config novamente'
+
+  expected_live_packages="$({
+    printf '%s\n' live-boot live-config live-config-systemd systemd-sysv
+  } | LC_ALL=C sort)"
+  actual_live_packages="$(
+    sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' \
+      "${LIVE_PACKAGE_LIST}" | LC_ALL=C sort
+  )"
+  [[ "${actual_live_packages}" == "${expected_live_packages}" ]] || \
+    fail 'config/package-lists/live.list.chroot diverge do contrato Trixie esperado'
+
+  generated_input_inventory+=(
+    "LIVE_LIST_SHA512=$(sha512sum -- "${LIVE_PACKAGE_LIST}" | awk '{print $1}')"
+  )
+
+  for scope in live normal; do
+    hook_dir="${IMAGE_DIR}/config/hooks/${scope}"
+    [[ -d "${hook_dir}" ]] || continue
+    for hook_path in "${hook_dir}"/*; do
+      [[ -e "${hook_path}" || -L "${hook_path}" ]] || continue
+      hook_name="$(basename -- "${hook_path}")"
+
+      if [[ "${hook_name}" == flavos-* ]]; then
+        if [[ -L "${hook_path}" ]]; then
+          hook_target="$(readlink -- "${hook_path}")"
+          generated_input_inventory+=(
+            "PROJECT_HOOK=config/hooks/${scope}/${hook_name}->${hook_target}"
+          )
+        elif [[ -f "${hook_path}" ]]; then
+          hook_checksum="$(sha512sum -- "${hook_path}" | awk '{print $1}')"
+          generated_input_inventory+=(
+            "PROJECT_HOOK=config/hooks/${scope}/${hook_name} sha512=${hook_checksum}"
+          )
+        else
+          fail "hook Flavos possui tipo não suportado: ${hook_path}"
+        fi
+        continue
+      fi
+
+      [[ -L "${hook_path}" ]] || \
+        fail "hook ignorado não reconhecido pode contaminar o build: ${hook_path}"
+      hook_target="$(readlink -- "${hook_path}")"
+      [[ "${hook_target}" == "/usr/share/live/build/hooks/${scope}/"* ]] || \
+        fail "hook upstream aponta para destino inesperado: ${hook_path} -> ${hook_target}"
+      [[ -f "${hook_target}" ]] || \
+        fail "hook upstream está obsoleto ou ausente: ${hook_path} -> ${hook_target}"
+      generated_input_inventory+=(
+        "UPSTREAM_HOOK=config/hooks/${scope}/${hook_name}->${hook_target}"
+      )
+    done
+  done
+}
 
 if ((EUID != 0)); then
-  printf 'Erro: o build do live-build precisa ser executado com sudo.\n' >&2
-  exit 1
+  fail 'o build do live-build precisa ser executado com sudo'
 fi
 
-if ! command -v lb >/dev/null 2>&1; then
-  printf 'Erro: live-build não está instalado.\n' >&2
-  exit 1
+if (($# != 0)); then
+  fail 'o build oficial M1.1 não aceita argumentos adicionais'
 fi
 
-if ! command -v git >/dev/null 2>&1; then
-  printf 'Erro: git é necessário para identificar o build.\n' >&2
-  exit 1
-fi
+for command_name in \
+  awk basename dpkg-query find git grep lb mksquashfs readlink sed sha512sum \
+  sort tee uname xorriso; do
+  command -v "${command_name}" >/dev/null 2>&1 || \
+    fail "${command_name} não está instalado"
+done
 
 if [[ "${ALLOW_DIRTY}" != "0" && "${ALLOW_DIRTY}" != "1" ]]; then
-  printf 'Erro: FLAVOS_ALLOW_DIRTY_BUILD deve ser 0 ou 1.\n' >&2
-  exit 1
+  fail 'FLAVOS_ALLOW_DIRTY_BUILD deve ser 0 ou 1'
 fi
 
 git_command=(git -c safe.directory="${REPO_ROOT}" -C "${REPO_ROOT}")
@@ -33,20 +172,81 @@ build_commit="$("${git_command[@]}" rev-parse HEAD)"
 worktree_status="$("${git_command[@]}" status --porcelain --untracked-files=normal)"
 
 if [[ -n "${worktree_status}" && "${ALLOW_DIRTY}" != "1" ]]; then
-  printf 'Erro: o M0 só pode ser construído a partir de um worktree limpo.\n' >&2
+  printf 'Erro: a M1.1 só pode ser construída a partir de um worktree limpo.\n' >&2
   printf '%s\n' "${worktree_status}" >&2
   printf 'Para experimento descartável, defina FLAVOS_ALLOW_DIRTY_BUILD=1.\n' >&2
   exit 1
 fi
+
+for config_file in "${GENERATED_CONFIG_FILES[@]}"; do
+  [[ -f "${config_file}" ]] || \
+    fail 'configuração efetiva ausente; execute lb config antes do build'
+done
+
+validate_generated_inputs
+
+[[ -f "${IMAGE_DIR}/.build/config" ]] || \
+  fail 'marcador de configuração do live-build ausente; execute lb config'
+
+residual_stage="$({
+  find "${IMAGE_DIR}/.build" -mindepth 1 \
+    ! -path "${IMAGE_DIR}/.build/config" -print -quit
+} 2>/dev/null || true)"
+[[ -z "${residual_stage}" ]] || \
+  fail "estado residual do live-build encontrado: ${residual_stage}"
+
+for residual_path in "${IMAGE_DIR}/.lock" "${IMAGE_DIR}/binary" "${IMAGE_DIR}/chroot"; do
+  [[ ! -e "${residual_path}" ]] || \
+    fail "estado residual do live-build encontrado: ${residual_path}"
+done
+
+if [[ -d "${IMAGE_DIR}/cache" ]]; then
+  residual_cache="$(find "${IMAGE_DIR}/cache" -mindepth 1 -print -quit)"
+  [[ -z "${residual_cache}" ]] || \
+    fail "cache residual encontrado; execute sudo lb clean --purge: ${residual_cache}"
+fi
+
+for ignored_dir in "${IMAGE_DIR}/local" "${IMAGE_DIR}/tmp"; do
+  [[ -d "${ignored_dir}" ]] || continue
+  ignored_input="$(find "${ignored_dir}" -mindepth 1 ! -type d -print -quit)"
+  [[ -z "${ignored_input}" ]] || \
+    fail "input ignorado não reconhecido pode contaminar o build: ${ignored_input}"
+done
+
+residual_output="$({
+  find "${IMAGE_DIR}" -maxdepth 1 -type f \
+    \( -name 'flavos-3.0-m0-amd64.*' \
+       -o -name 'flavos-3.0-m1.1-amd64.*' \
+       -o -name '*.list' \
+       -o -name '*.contents' \
+       -o -name '*.files' \
+       -o -name '*.packages' \
+       -o -name '*.packages.*' \
+       -o -name '*.modified_timestamps' \
+       -o -name 'chroot.files' \
+       -o -name 'chroot.packages.*' \) \
+    -print -quit
+} 2>/dev/null || true)"
+[[ -z "${residual_output}" ]] || \
+  fail "artefato residual encontrado; arquive e limpe antes do build: ${residual_output}"
+
+for ((index = 0; index < ${#CONFIG_EXPECTATIONS[@]}; index += 2)); do
+  validate_effective_config \
+    "${CONFIG_EXPECTATIONS[index]}" "${CONFIG_EXPECTATIONS[index + 1]}"
+done
 
 if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
   SOURCE_DATE_EPOCH="$("${git_command[@]}" log -1 --format=%ct)"
   export SOURCE_DATE_EPOCH
 fi
 
-if [[ ! "${SOURCE_DATE_EPOCH}" =~ ^[0-9]+$ ]]; then
-  printf 'Erro: SOURCE_DATE_EPOCH deve ser um timestamp Unix.\n' >&2
-  exit 1
+[[ "${SOURCE_DATE_EPOCH}" =~ ^[0-9]+$ ]] || \
+  fail 'SOURCE_DATE_EPOCH deve ser um timestamp Unix'
+
+host_os=unknown
+if [[ -r /etc/os-release ]]; then
+  host_os="$(sed -n 's/^PRETTY_NAME=//p' /etc/os-release | sed -n '1p')"
+  host_os="$(unquote_value "${host_os:-unknown}")"
 fi
 
 cd "${IMAGE_DIR}"
@@ -57,7 +257,35 @@ rm -f -- "${ARCHIVE_MARKER}"
   printf 'SOURCE_DATE_EPOCH=%s\n' "${SOURCE_DATE_EPOCH}"
   printf 'FLAVOS_BUILD_DIRTY=%s\n' "$([[ -n "${worktree_status}" ]] && printf 1 || printf 0)"
   printf 'BUILD_STARTED_UTC=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  printf 'LIVE_BUILD_VERSION='
-  lb --version
-  lb build noauto "$@"
+
+  printf 'BUILD_ENVIRONMENT_BEGIN\n'
+  printf 'BUILD_HOST_OS=%s\n' "${host_os}"
+  printf 'BUILD_HOST_KERNEL=%s\n' "$(uname -srmo)"
+  printf 'GIT_VERSION=%s\n' "$(git --version)"
+  printf 'LIVE_BUILD_VERSION=%s\n' "$(lb --version)"
+  printf 'XORRISO_VERSION=%s\n' "$(xorriso -version 2>&1 | sed -n '1p')"
+  printf 'MKSQUASHFS_VERSION=%s\n' "$(mksquashfs -version 2>&1 | sed -n '1p')"
+  dpkg-query -W -f='BUILD_PACKAGE_${binary:Package}=${Version}\n' \
+    live-build squashfs-tools xorriso
+  printf 'BUILD_ENVIRONMENT_END\n'
+
+  printf 'LIVE_BUILD_EFFECTIVE_CONFIG_BEGIN\n'
+  printf '%s\n' "${effective_config[@]}"
+  printf 'LIVE_BUILD_EFFECTIVE_CONFIG_END\n'
+
+  printf 'LIVE_BUILD_CONFIG_SHA512_BEGIN\n'
+  sha512sum -- \
+    config/common \
+    config/bootstrap \
+    config/chroot \
+    config/binary \
+    config/source
+  printf 'LIVE_BUILD_CONFIG_SHA512_END\n'
+
+  printf 'LIVE_BUILD_GENERATED_INPUTS_BEGIN\n'
+  printf '%s\n' "${generated_input_inventory[@]}"
+  printf 'LIVE_BUILD_GENERATED_INPUTS_END\n'
+
+  lb build noauto
+  printf 'BUILD_FINISHED_UTC=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } 2>&1 | tee build.log

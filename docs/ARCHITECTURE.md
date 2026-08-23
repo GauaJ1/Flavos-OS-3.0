@@ -24,8 +24,35 @@
                  Linux Kernel
 ```
 
-Esta figura descreve a direção conceitual. No bootstrap atual, somente Debian,
-kernel, systemd e o destino TTY estão aprovados.
+Esta figura descreve a direção conceitual. O M0 aprovou Debian, kernel, systemd e
+o destino TTY; o M1.1 está acrescentando a fundação gráfica técnica abaixo da
+futura Flavos Session.
+
+## Fundação gráfica inicial
+
+```text
+aplicação técnica Foot
+          │
+       Wayland
+          │
+    Labwc 0.8.3
+          │
+   wlroots 0.18
+          │
+DRM/libinput + systemd-logind
+```
+
+Wayland é o protocolo primário e Labwc é o compositor técnico inicial. A sessão
+começa no login do TTY: `libpam-systemd` registra a sessão no
+`systemd-logind`, que permanece o único broker de seat. `dbus-user-session`
+fornece o barramento integrado a `systemd --user`. Essa composição é uma
+instrumentação de M1.1, não a Flavos Session definitiva.
+
+XWayland está disponível para a futura compatibilidade, mas uma aplicação X11 só
+será aceita no M1.2. O renderer normal não é forçado. O modo
+`WLR_RENDERER=pixman` é exclusivamente um experimento manual para diagnóstico e
+não constitui fallback automático. Consulte o
+[ADR-002](adr/ADR-002-display-stack.md).
 
 ## Responsabilidades previstas
 
@@ -56,16 +83,23 @@ definidos.
 - Linux como kernel;
 - systemd como init e infraestrutura de serviços;
 - D-Bus e cgroups por meio da infraestrutura padrão do sistema;
-- `live-build` como ferramenta principal para gerar a futura ISO híbrida.
+- `live-build` como ferramenta principal para gerar a futura ISO híbrida;
+- Wayland como protocolo gráfico primário;
+- Labwc 0.8.3 sobre wlroots 0.18 como fundação gráfica inicial;
+- `systemd-logind`/`libpam-systemd` como caminho único de sessão e seat;
+- `dbus-user-session` para o barramento da sessão de usuário;
+- XWayland disponível para compatibilidade a ser validada no M1.2.
 
 ## Decisões deliberadamente pendentes
 
 Exigem pesquisa e ADR antes da implementação:
 
-- Wayland, X11 e eventual estratégia de compatibilidade;
-- compositor e gerenciador de janelas;
+- necessidade de uma sessão Xorg completa, condicionada a testes físicos e a um
+  novo ADR;
+- compositor definitivo do produto, além do Labwc técnico inicial;
 - GTK, Qt/QML ou outro toolkit;
 - display manager;
+- Flavos Session definitiva e política de login;
 - filesystem;
 - instalador;
 - Flatpak e política de pacotes;

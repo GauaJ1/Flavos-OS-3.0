@@ -1,5 +1,6 @@
 NAME="Flavos OS"
 VERSION="3.0"
-MILESTONE="M0"
+MILESTONE="M1.1"
+STAGE="Graphical Foundation / Display"
 BASE="Debian 13 (trixie)"
 ARCHITECTURE="amd64"

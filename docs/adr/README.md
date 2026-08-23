@@ -17,5 +17,6 @@ sem contexto.
 | ADR | Estado | Decisão |
 |---|---|---|
 | [ADR-001](ADR-001-debian-base.md) | Aceito | Debian 13 Trixie amd64 como base |
+| [ADR-002](ADR-002-display-stack.md) | Aceito | Wayland com Labwc como fundação gráfica inicial |
 
 Use [TEMPLATE.md](TEMPLATE.md) para novos registros.

@@ -38,6 +38,11 @@ substituir a infraestrutura que o Linux, o Debian e o systemd já fornecem.
 
 ## Limites atuais
 
-O milestone M0 não inclui desktop, shell, Flow, instalador ou efeitos adaptativos.
-Seu único objetivo é estabelecer um build reproduzível que inicialize kernel,
-systemd e TTY em BIOS e UEFI.
+O M0 foi concluído sem desktop, shell, Flow, instalador ou efeitos adaptativos. O
+M1 está em andamento e seu recorte atual, M1.1, acrescenta somente a fundação
+técnica `TTY → Labwc → Wayland → Foot` descrita no
+[ADR-002](adr/ADR-002-display-stack.md).
+
+Essa primeira janela não é ainda o Flavos Desktop e não escolhe toolkit, display
+manager, shell ou sessão definitiva. XWayland fica disponível, mas a
+compatibilidade X11 será testada apenas no M1.2.

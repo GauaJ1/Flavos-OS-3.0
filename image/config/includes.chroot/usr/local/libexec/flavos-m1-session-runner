@@ -1,0 +1,63 @@
+#!/bin/bash
+
+set -Eeuo pipefail
+umask 077
+
+readonly USER_ID="$(id -u)"
+readonly RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${USER_ID}}"
+readonly STATE_DIR="${RUNTIME_DIR}/flavos-m1"
+readonly CONFIG_DIR="/etc/flavos/labwc"
+
+publish_text() {
+  local destination=$1
+  shift
+  local temporary="${destination}.tmp.$$"
+
+  printf '%s\n' "$@" >"${temporary}"
+  chmod 0600 "${temporary}"
+  mv -f -- "${temporary}" "${destination}"
+}
+
+if [[ ! -d "${RUNTIME_DIR}" || ! -O "${RUNTIME_DIR}" ]]; then
+  printf 'Erro: XDG_RUNTIME_DIR inválido para a sessão: %s\n' \
+    "${RUNTIME_DIR}" >&2
+  exit 1
+fi
+
+rm -rf -- "${STATE_DIR}"
+install -d -m 0700 -- "${STATE_DIR}"
+
+export XDG_RUNTIME_DIR="${RUNTIME_DIR}"
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=labwc
+export XDG_CURRENT_DESKTOP=labwc
+
+# O laboratório M1.1 precisa provar o backend DRM real. Variáveis de backend
+# aninhado/headless nunca são herdadas. WLR_RENDERER permanece configurável para
+# que o modo manual experimental Pixman possa ser exercitado deliberadamente.
+unset DISPLAY WAYLAND_DISPLAY WLR_BACKENDS WLR_HEADLESS_OUTPUTS
+
+runner_env_tmp="${STATE_DIR}/runner.env.tmp.$$"
+{
+  printf 'USER_ID=%s\n' "${USER_ID}"
+  printf 'TTY=%s\n' "$(tty 2>/dev/null || printf unknown)"
+  printf 'XDG_RUNTIME_DIR=%s\n' "${XDG_RUNTIME_DIR}"
+  printf 'XDG_SESSION_ID=%s\n' "${XDG_SESSION_ID:-unknown}"
+  printf 'START_UPTIME=%s\n' "$(cut -d' ' -f1 /proc/uptime)"
+  printf 'WLR_RENDERER_REQUEST=%s\n' "${WLR_RENDERER:-auto}"
+} >"${runner_env_tmp}"
+chmod 0600 "${runner_env_tmp}"
+mv -f -- "${runner_env_tmp}" "${STATE_DIR}/runner.env"
+
+set +e
+labwc -C "${CONFIG_DIR}" -V >"${STATE_DIR}/labwc.log" 2>&1
+labwc_status=$?
+set -e
+
+publish_text "${STATE_DIR}/session-exit" "${labwc_status}"
+
+if grep -Fqw 'flavos.m1.probe=1' /proc/cmdline; then
+  exec /usr/local/libexec/flavos-m1-tty-challenge
+fi
+
+exit "${labwc_status}"

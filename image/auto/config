@@ -5,19 +5,37 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 image_dir=$(CDPATH= cd -- "${script_dir}/.." && pwd -P)
 
+if [ "$#" -ne 0 ]; then
+  printf 'Erro: a configuração oficial M1.1 não aceita argumentos adicionais.\n' >&2
+  printf 'Edite image/auto/config e registre a decisão no Git em vez de sobrescrever opções pela linha de comando.\n' >&2
+  exit 2
+fi
+
 cd "${image_dir}"
 
 remove_generated_hooks() {
   for hook_dir in config/hooks/live config/hooks/normal; do
     [ -d "${hook_dir}" ] || continue
     for hook_path in "${hook_dir}"/*; do
-      [ -L "${hook_path}" ] || continue
-      hook_target=$(readlink -- "${hook_path}")
-      case "${hook_target}" in
-        /usr/share/live/build/hooks/*)
-          rm -f -- "${hook_path}"
-          ;;
+      [ -e "${hook_path}" ] || [ -L "${hook_path}" ] || continue
+      hook_name=$(basename -- "${hook_path}")
+      case "${hook_name}" in
+        flavos-*) continue ;;
       esac
+
+      if [ -L "${hook_path}" ]; then
+        hook_target=$(readlink -- "${hook_path}")
+        case "${hook_target}" in
+          /usr/share/live/build/hooks/*)
+            rm -f -- "${hook_path}"
+            continue
+            ;;
+        esac
+      fi
+
+      printf 'Erro: hook ignorado não reconhecido; remova ou versione com prefixo flavos-: %s\n' \
+        "${hook_path}" >&2
+      exit 1
     done
   done
 }
@@ -59,9 +77,8 @@ lb config noauto \
   --win32-loader false \
   --zsync false \
   --utc-time true \
-  --image-name flavos-3.0-m0 \
-  --iso-application "Flavos OS 3.0 M0" \
+  --image-name flavos-3.0-m1.1 \
+  --iso-application "Flavos OS 3.0 M1.1" \
   --iso-publisher "Flavos OS Project" \
-  --iso-volume "FLAVOS_3_0_M0" \
-  --bootappend-live "boot=live components hostname=flavos username=flavos systemd.unit=multi-user.target console=tty0 console=ttyS0,115200n8 flavos.m0.probe=1" \
-  "$@"
+  --iso-volume "FLAVOS_3_0_M1_1" \
+  --bootappend-live "boot=live components hostname=flavos username=flavos systemd.unit=multi-user.target console=tty0 console=ttyS0,115200n8 flavos.m1.probe=1"

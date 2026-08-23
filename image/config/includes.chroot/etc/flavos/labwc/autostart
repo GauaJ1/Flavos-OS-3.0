@@ -1,0 +1,14 @@
+#!/bin/sh
+
+if grep -Fqw 'flavos.m1.probe=1' /proc/cmdline 2>/dev/null && \
+  [ -e /sys/firmware/qemu_fw_cfg/by_name/opt/flavos.m1.graphical_nonce/raw ] && \
+  [ -e /sys/firmware/qemu_fw_cfg/by_name/opt/flavos.m1.tty_nonce/raw ]; then
+  exec /usr/local/libexec/flavos-m1-autostart
+fi
+
+# Fora do harness, uma sessão iniciada manualmente continua útil e abre apenas
+# o terminal técnico, sem probe, nonce ou política de sessão definitiva.
+foot \
+  --config=/etc/flavos/foot-m1.ini \
+  --app-id=flavos-m1-foot \
+  --title='Flavos OS 3.0 M1.1 Display Foundation' &

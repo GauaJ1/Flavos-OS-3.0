@@ -4,9 +4,64 @@ set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 image_dir=$(CDPATH= cd -- "${script_dir}/.." && pwd -P)
-iso_path="${image_dir}/flavos-3.0-m0-amd64.hybrid.iso"
-archive_marker="${image_dir}/.m0-last-archive"
+m0_iso_path="${image_dir}/flavos-3.0-m0-amd64.hybrid.iso"
+m0_archive_marker="${image_dir}/.m0-last-archive"
+m1_iso_path="${image_dir}/flavos-3.0-m1.1-amd64.hybrid.iso"
+m1_archive_marker="${image_dir}/.m1-last-archive"
 discard_unarchived=${FLAVOS_DISCARD_UNARCHIVED:-0}
+
+protect_iso_before_clean() {
+  protected_iso=$1
+  protected_marker=$2
+  archive_command=$3
+  milestone=$4
+
+  [ -f "${protected_iso}" ] || return 0
+
+  if [ "${discard_unarchived}" = "1" ]; then
+    printf 'Aviso: descartando ISO %s não arquivada por solicitação explícita.\n' \
+      "${milestone}" >&2
+    return 0
+  fi
+
+  if [ ! -f "${protected_marker}" ]; then
+    printf 'Erro: preserve o build %s antes da limpeza:\n' "${milestone}" >&2
+    printf '  cd .. && %s\n' "${archive_command}" >&2
+    exit 1
+  fi
+
+  iso_sha512=$(sha512sum -- "${protected_iso}" | awk '{print $1}')
+  archived_sha512=$(sed -n 's/^ISO_SHA512=//p' "${protected_marker}")
+  archive_dir=$(sed -n 's/^ARCHIVE_DIR=//p' "${protected_marker}")
+
+  if [ -z "${archive_dir}" ] || [ ! -d "${archive_dir}" ]; then
+    printf 'Erro: diretório de arquivamento %s é inválido.\n' "${milestone}" >&2
+    exit 1
+  fi
+
+  archive_dir=$(CDPATH= cd -- "${archive_dir}" && pwd -P)
+  case "${archive_dir}/" in
+    "${image_dir}/"*)
+      printf 'Erro: o arquivo %s está dentro de image/ e seria removido pela limpeza.\n' \
+        "${milestone}" >&2
+      exit 1
+      ;;
+  esac
+  archived_iso="${archive_dir}/$(basename -- "${protected_iso}")"
+
+  if [ "${iso_sha512}" != "${archived_sha512}" ] || [ ! -f "${archived_iso}" ]; then
+    printf 'Erro: o marcador de arquivamento %s não corresponde à ISO atual.\n' \
+      "${milestone}" >&2
+    exit 1
+  fi
+
+  copied_sha512=$(sha512sum -- "${archived_iso}" | awk '{print $1}')
+  if [ "${copied_sha512}" != "${iso_sha512}" ]; then
+    printf 'Erro: a cópia arquivada %s falhou na validação de checksum.\n' \
+      "${milestone}" >&2
+    exit 1
+  fi
+}
 
 if ! command -v lb >/dev/null 2>&1; then
   printf 'Erro: live-build não está instalado.\n' >&2
@@ -22,32 +77,10 @@ if [ "${discard_unarchived}" != "0" ] && [ "${discard_unarchived}" != "1" ]; the
   exit 1
 fi
 
-if [ -f "${iso_path}" ] && [ "${discard_unarchived}" != "1" ]; then
-  if [ ! -f "${archive_marker}" ]; then
-    printf 'Erro: preserve o build antes da limpeza:\n' >&2
-    printf '  cd .. && ./tools/archive-m0-build.sh\n' >&2
-    exit 1
-  fi
-
-  iso_sha512=$(sha512sum -- "${iso_path}" | awk '{print $1}')
-  archived_sha512=$(sed -n 's/^ISO_SHA512=//p' "${archive_marker}")
-  archive_dir=$(sed -n 's/^ARCHIVE_DIR=//p' "${archive_marker}")
-  archived_iso="${archive_dir}/$(basename -- "${iso_path}")"
-
-  if [ -z "${archive_dir}" ] || [ "${iso_sha512}" != "${archived_sha512}" ] || \
-    [ ! -f "${archived_iso}" ]; then
-    printf 'Erro: o marcador de arquivamento não corresponde à ISO atual.\n' >&2
-    exit 1
-  fi
-
-  copied_sha512=$(sha512sum -- "${archived_iso}" | awk '{print $1}')
-  if [ "${copied_sha512}" != "${iso_sha512}" ]; then
-    printf 'Erro: a cópia arquivada falhou na validação de checksum.\n' >&2
-    exit 1
-  fi
-elif [ -f "${iso_path}" ]; then
-  printf 'Aviso: descartando ISO não arquivada por solicitação explícita.\n' >&2
-fi
+protect_iso_before_clean \
+  "${m0_iso_path}" "${m0_archive_marker}" './tools/archive-m0-build.sh' M0
+protect_iso_before_clean \
+  "${m1_iso_path}" "${m1_archive_marker}" './tools/archive-m1-build.sh' M1.1
 
 cd "${image_dir}"
 lb clean noauto "$@"
@@ -71,5 +104,10 @@ rm -f \
   config/chroot \
   config/common \
   config/source \
-  config/package-lists/live.list.chroot \
-  "${archive_marker}"
+  config/package-lists/live.list.chroot
+
+# Um marcador só representa a cópia da ISO que existia em image/. Se a limpeza
+# realmente removeu essa ISO, o marcador deixa de ter função; se o live-build a
+# preservou por alguma razão, ele também permanece para continuar protegendo-a.
+[ -f "${m0_iso_path}" ] || rm -f -- "${m0_archive_marker}"
+[ -f "${m1_iso_path}" ] || rm -f -- "${m1_archive_marker}"

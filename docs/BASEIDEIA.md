@@ -2,6 +2,8 @@
 
 ## Foundation / Project Bootstrap v0.1
 
+> **Estado do projeto:** M0 concluído; M1 em andamento; M1.1 em implementação.
+
 ### 1. Base oficial
 
 **Sistema-base:** Debian 13 “Trixie”
@@ -180,7 +182,7 @@ O desenvolvimento da ISO deve inicialmente ocorrer dentro de Debian para reduzir
 
 ---
 
-# 7. Primeiro objetivo técnico
+# 7. Primeiro objetivo técnico — concluído no M0
 
 **Não construir o Flavos Desktop ainda.**
 
@@ -220,7 +222,9 @@ sudo lb build
 
 O Debian Live Manual usa justamente `lb config` seguido de `lb build` como fluxo básico para produzir uma ISO híbrida.
 
-Quando essa ISO inicial puder ser reconstruída consistentemente, avançamos.
+Esse gate foi cumprido em duas construções e nos boots BIOS/UEFI registrados no
+[relatório de encerramento do M0](M0-REPORT.md). O avanço ao M1 ocorreu somente
+depois dessa conclusão.
 
 ---
 
@@ -257,6 +261,33 @@ Escolher e implementar:
 Nenhum componente deve ser escolhido simplesmente porque “é comum em Linux”.
 
 Cada decisão deverá ser documentada.
+
+### Recorte atual: M1.1 — Wayland Display Foundation
+
+O [ADR-002](adr/ADR-002-display-stack.md) aprovou para a fundação inicial:
+
+```text
+login/TTY
+   ↓
+Labwc 0.8.3 sobre wlroots 0.18
+   ↓
+socket Wayland
+   ↓
+Foot
+```
+
+- Wayland é o protocolo gráfico primário;
+- `systemd-logind`, com registro por `libpam-systemd`, é o único broker de seat;
+- `dbus-user-session` integra a sessão D-Bus a `systemd --user`;
+- XWayland fica disponível, mas o teste X11 pertence ao M1.2;
+- `WLR_RENDERER=pixman` é somente um experimento manual para diagnóstico, sem
+  fallback automático;
+- Xorg completo, display manager, toolkit, sessão definitiva e política de login
+  continuam pendentes.
+
+O M1.1 não inclui áudio, rede, energia, portais, desktop environment, painel,
+launcher ou qualquer interface Flavos. Ele permanece em implementação: somente
+uma construção e os boots de aceitação poderão produzir um resultado PASS.
 
 ---
 
@@ -385,13 +416,16 @@ Só então começar ciclo público de testes.
 
 # 9. Tecnologias que NÃO devem ser decididas às pressas
 
-O agente não deverá escolher sozinho e começar a implementar imediatamente:
+O [ADR-002](adr/ADR-002-display-stack.md) já decidiu Wayland e Labwc para a
+fundação inicial. Isso não autoriza escolher sozinho ou implementar
+imediatamente as decisões ainda pendentes:
 
 ```text
-Wayland vs X11/fallback
-compositor
+Xorg completo ou fallback automático
+compositor definitivo
 GTK vs Qt/QML
 display manager
+sessão e política de login definitivas
 filesystem
 installer
 Flatpak
@@ -601,7 +635,8 @@ Essas deverão ser consideradas as referências iniciais, preferindo sempre docu
 
 O plano deste capítulo foi concluído em duas passagens limpas do commit
 `fedc240969fe1a1bba8d694159fb657802bf4b9f`; resultados e evidências estão no
-[relatório do M0](M0-REPORT.md). O M1 ainda não foi iniciado.
+[relatório do M0](M0-REPORT.md). Depois desse encerramento, o M1 foi aberto
+explicitamente e o M1.1 entrou em implementação.
 
 A imagem netinst de referência usada para preparar o laboratório está disponível em:
 
@@ -773,10 +808,12 @@ Todos esses entregáveis foram cumpridos e consolidados no
 
 O gate técnico foi cumprido: a partir de uma VM Debian 13, o repositório reconstrói
 uma ISO que chega ao TTY em BIOS e UEFI. Isso encerra o M0, mas não inicia
-automaticamente o M1.
+automaticamente o M1. A abertura do M1 ocorreu depois, por decisão explícita.
 
 ## 15.6 Estado após o encerramento
 
-O projeto permanece no marco M0 concluído. Nenhuma escolha de display stack,
-compositor, toolkit, login gráfico ou sessão foi feita neste encerramento. O M1 só
-poderá começar por decisão explícita, pesquisa e ADRs próprios.
+O M0 permanece concluído e imutável. O projeto está agora no M1, com o M1.1 em
+implementação. Wayland, Labwc, wlroots, XWayland disponível, logind e a sessão
+D-Bus foram registrados no [ADR-002](adr/ADR-002-display-stack.md); toolkit,
+display manager, sessão definitiva e M1.2 continuam pendentes. Nenhum PASS do
+M1.1 é alegado antes dos builds e boots de aceitação.

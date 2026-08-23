@@ -40,8 +40,9 @@ releases/*.xz
 releases/*.zst
 releases/local/
 
-# Marcador local de preservação do último build M0
+# Marcadores locais de preservação dos builds técnicos
 image/.m0-last-archive
+image/.m1-last-archive
 
 # Logs, caches e temporários
 *.log

@@ -1,7 +1,7 @@
 # Flavos OS 3.0
 
-> **Estado:** Foundation / Project Bootstrap v0.1 — concluído<br>
-> **Milestone atual:** M0 — Bootstrap (concluído; M1 não iniciado)<br>
+> **Estado:** M1 — Graphical Foundation em andamento<br>
+> **Milestone atual:** M1.1 — Wayland Display Foundation (em implementação)<br>
 > **Base:** Debian 13 “Trixie”<br>
 > **Arquitetura:** amd64 / x86-64
 
@@ -22,8 +22,22 @@ ISO → kernel Linux → systemd → TTY
 O bootstrap foi validado em duas passagens limpas do commit
 `fedc240969fe1a1bba8d694159fb657802bf4b9f`. A estrutura da ISO e os boots BIOS
 e UEFI foram verificados pelo laboratório automatizado; hashes, manifestos e
-evidências estão no [relatório de encerramento do M0](docs/M0-REPORT.md). A
-conclusão do M0 não inicia o M1.
+evidências estão no [relatório de encerramento do M0](docs/M0-REPORT.md).
+
+## Trabalho atual: M1.1
+
+O M1 foi aberto explicitamente depois do encerramento do M0. Seu primeiro
+recorte implementa e verifica somente:
+
+```text
+login/TTY → Labwc → socket Wayland → Foot
+```
+
+Wayland é o protocolo primário; Labwc 0.8.3 sobre wlroots 0.18 é o compositor
+técnico inicial. XWayland fica disponível, mas a prova de uma aplicação X11
+pertence ao M1.2. A imagem ainda não inclui desktop environment, display manager,
+painel, launcher, toolkit ou sessão Flavos definitiva. Consulte o
+[ADR-002](docs/adr/ADR-002-display-stack.md).
 
 ## Princípios
 

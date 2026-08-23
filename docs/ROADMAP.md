@@ -11,8 +11,32 @@ boot até TTY em BIOS e UEFI. Consulte o [relatório do M0](M0-REPORT.md).
 
 ## M1 — Graphical Foundation
 
-Pesquisar, registrar em ADRs e implementar display stack, compositor ou window
-manager, login e sessão, entrada, áudio, rede e gerenciamento de energia.
+**Em andamento.** Pesquisar, registrar em ADRs e implementar display stack,
+compositor, login e sessão, entrada, compatibilidade, áudio, rede e gerenciamento
+de energia em recortes verificáveis.
+
+### M1.1 — Wayland Display Foundation (em implementação)
+
+Partindo exclusivamente do M0 aprovado, comprovar:
+
+```text
+login/TTY → Labwc → socket Wayland → Foot
+```
+
+O [ADR-002](adr/ADR-002-display-stack.md) aprovou Wayland como protocolo
+primário e Labwc 0.8.3 sobre wlroots 0.18 como compositor técnico inicial. A
+sessão usa `systemd-logind`/`libpam-systemd` para seat e login e
+`dbus-user-session` para a integração D-Bus com `systemd --user`.
+
+XWayland fica disponível na imagem, mas a execução e validação de uma aplicação
+X11 pertencem ao M1.2. O M1.1 ainda não foi concluído e não autoriza avançar para
+áudio, rede, energia, portais ou componentes Flavos.
+
+### M1.2 — Compatibilidade (pendente)
+
+Validar uma aplicação X11 real através do XWayland somente depois de o caminho
+Wayland nativo do M1.1 estar estável. Escopo e gate detalhados serão fechados
+antes da implementação.
 
 ## M2 — Flavos Shell
 
@@ -48,7 +72,7 @@ de testes.
 
 ## Estado atual
 
-O projeto concluiu **Foundation / Project Bootstrap v0.1** e permanece no marco
-**M0 — Bootstrap concluído**. O M1 ainda não foi iniciado; seu começo exige uma
-decisão explícita, pesquisa e ADRs, sem escolhas antecipadas de stack gráfica,
-compositor, toolkit, display manager ou sessão.
+O projeto concluiu **M0 — Bootstrap** e iniciou **M1 — Graphical Foundation**. O
+recorte atual é **M1.1 — Wayland Display Foundation, em implementação**; nenhum
+PASS é alegado antes da construção e dos boots de aceitação. Toolkit, display
+manager, sessão definitiva e M1.2 permanecem pendentes.

@@ -5,7 +5,9 @@
 O pipeline do M0 foi executado e validado em duas passagens limpas do commit
 `fedc240969fe1a1bba8d694159fb657802bf4b9f`. Os hashes, manifestos, versões das
 ferramentas e evidências BIOS/UEFI estão no [relatório do M0](M0-REPORT.md).
-Este encerramento não inicia o M1.
+Depois desse encerramento, o M1 foi aberto explicitamente. O recorte atual é
+**M1.1 — Wayland Display Foundation, em implementação**; nenhuma construção ou
+validação M1 é declarada como concluída neste documento.
 
 ## Estratégia aprovada
 
@@ -23,12 +25,13 @@ O preparo desse ambiente está documentado em
 
 ```bash
 sudo apt update
-sudo apt install git live-build qemu-system-x86 qemu-utils ovmf xorriso squashfs-tools
+sudo apt install git live-build qemu-system-x86 qemu-utils ovmf xorriso \
+  squashfs-tools imagemagick
 ```
 
-## Configuração mínima de referência
+## Referência histórica do M0
 
-O primeiro experimento do M0 parte deste fluxo resumido:
+O primeiro experimento do M0 partiu deste fluxo resumido:
 
 ```bash
 cd image
@@ -39,8 +42,9 @@ lb config \
 sudo lb build
 ```
 
-No repositório, as opções completas ficam em `image/auto/config`. O fluxo
-pretendido dentro da VM é:
+O commit registrado no relatório conserva as opções exatas usadas no M0. A
+configuração ativa em `image/auto/config` evolui agora para o M1.1, preservando a
+mesma mecânica de construção dentro da VM:
 
 ```bash
 cd image
@@ -49,18 +53,19 @@ lb config
 sudo lb build
 ```
 
-Os scripts automáticos usam `noauto` internamente para evitar recursão. O resultado
-esperado é `image/flavos-3.0-m0-amd64.hybrid.iso`.
+Os scripts automáticos usam `noauto` internamente para evitar recursão. No M0, o
+resultado foi `image/flavos-3.0-m0-amd64.hybrid.iso`; no recorte ativo, o
+resultado esperado é `image/flavos-3.0-m1.1-amd64.hybrid.iso`.
 
-A estrutura versionada deve ser validada sem privilégios antes de cada build:
+A estrutura do M0 foi validada sem privilégios, no commit encerrado, com:
 
 ```bash
 ./tests/validate-m0-config.sh
 ```
 
-O build oficial do M0 deve partir de um commit com worktree limpo. O script recusa
-alterações não versionadas, registra commit, `SOURCE_DATE_EPOCH` e versão do
-`live-build` no log. A sequência segura de duas passagens é:
+O build oficial do M0 partiu de um commit com worktree limpo. Naquela revisão, o
+script recusava alterações não versionadas e registrava commit,
+`SOURCE_DATE_EPOCH` e versão do `live-build` no log. A sequência executada foi:
 
 ```bash
 cd image
@@ -78,19 +83,76 @@ cd ..
 ./tools/archive-m0-build.sh
 ```
 
-Cada arquivamento cria um diretório único em `releases/local/m0/`, contendo ISO,
+Cada arquivamento criou um diretório único em `releases/local/m0/`, contendo ISO,
 log, manifestos, versões das ferramentas, commit e SHA-512. Esse diretório é
-local e ignorado pelo Git. A limpeza recusa remover uma ISO que ainda não possua
-cópia arquivada e validada. Um descarte intencional exige explicitamente
-`FLAVOS_DISCARD_UNARCHIVED=1`.
+local e ignorado pelo Git. Na revisão M0, a limpeza recusava remover uma ISO que
+ainda não possuísse cópia arquivada e validada; um descarte intencional exigia
+explicitamente `FLAVOS_DISCARD_UNARCHIVED=1`.
 
 No M0, firmware para hardware físico, Debian Installer e Secure Boot permanecem
 desabilitados. O objetivo é validar exclusivamente o live boot mínimo em QEMU com
 BIOS e UEFI; essas limitações não definem a política dos milestones posteriores.
 
+## Fluxo esperado do M1.1 (em desenvolvimento)
+
+O M1.1 preserva o gate M0 e acrescenta a menor stack necessária para comprovar
+`login/TTY → Labwc → Wayland → Foot`. A imagem técnica não adiciona desktop
+environment, display manager, painel, launcher ou componentes visuais Flavos.
+XWayland fica disponível, mas o teste de uma aplicação X11 é escopo do M1.2.
+
+A interface prevista para configuração, validação, arquivamento e boot é:
+
+```bash
+./tests/validate-m1-config.sh
+
+cd image
+sudo lb clean --purge
+lb config
+sudo lb build
+cd ..
+
+./tests/validate-m1-iso.sh image/flavos-3.0-m1.1-amd64.hybrid.iso
+./tools/archive-m1-build.sh
+./tools/test-m1-boot.sh all
+```
+
+Esses comandos descrevem o contrato em implementação e verificação. A simples
+presença dos scripts ou da ISO não significa PASS. Antes do encerramento, duas
+passagens limpas e independentes deverão ser arquivadas e a mesma ISO de cada
+passagem deverá passar nos caminhos BIOS e UEFI.
+
+O harness M1.1 deve ser executado como usuário normal. Ele expõe uma GPU
+`virtio-vga` com scanout DRM, teclado e mouse virtuais, mantém a ISO somente
+leitura e a rede desabilitada e preserva em
+`releases/local/m1.1/boot-tests/` os logs seriais, probes, nonces, screenshots e
+checksums. `imagemagick` é usado somente no host para confirmar que o framebuffer
+contém a janela Foot em tela cheia; processo ou socket isolado não produz PASS.
+Os nonces entregues por `fw_cfg` permanecem legíveis somente pelo probe root; os
+challenges Foot/TTY publicam apenas os dígitos realmente recebidos, e o probe faz
+a comparação autoritativa sem gravar no diretório de estado do usuário.
+
+Para testar exatamente uma ISO arquivada com o harness, use
+`FLAVOS_M1_ISO=/caminho/flavos-3.0-m1.1-amd64.hybrid.iso`. O validador estrutural
+recebe a ISO como argumento posicional e aceita o manifesto correspondente por
+meio de `FLAVOS_M1_MANIFEST`:
+
+```bash
+FLAVOS_M1_MANIFEST=/caminho/flavos-3.0-m1.1-amd64.packages \
+  ./tests/validate-m1-iso.sh \
+  /caminho/flavos-3.0-m1.1-amd64.hybrid.iso
+```
+
+O teste normal deixa a stack selecionar seu renderer. Uma execução manual com
+`WLR_RENDERER=pixman` pode ser usada separadamente como experimento diagnóstico,
+mas não é fallback automático e não substitui o gate gráfico normal. A decisão
+completa está no [ADR-002](adr/ADR-002-display-stack.md).
+
 ## Validar a ISO e o boot
 
-A estrutura interna e os dois caminhos de firmware são validados com:
+### M0 encerrado
+
+Na revisão encerrada do M0, a estrutura interna e os dois caminhos de firmware
+foram validados com:
 
 ```bash
 ./tests/validate-m0-iso.sh image/flavos-3.0-m0-amd64.hybrid.iso

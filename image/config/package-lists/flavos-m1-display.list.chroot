@@ -1,0 +1,7 @@
+# M1.1: display Wayland mínimo, sessão PAM/logind e ferramentas de prova.
+labwc
+xwayland
+foot
+wayland-utils
+dbus-user-session
+libpam-systemd

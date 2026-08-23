@@ -1,0 +1,11 @@
+[Unit]
+Description=Agenda a validação gráfica Flavos OS 3.0 M1.1
+ConditionKernelCommandLine=flavos.m1.probe=1
+
+[Timer]
+OnActiveSec=4s
+AccuracySec=100ms
+Unit=flavos-m1-probe.service
+
+[Install]
+WantedBy=multi-user.target

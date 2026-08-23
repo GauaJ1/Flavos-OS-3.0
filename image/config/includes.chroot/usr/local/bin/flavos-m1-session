@@ -1,0 +1,44 @@
+#!/bin/bash
+
+set -Eeuo pipefail
+
+if ((EUID == 0)); then
+  printf 'Erro: a sessão gráfica deve ser iniciada por um usuário normal.\n' >&2
+  exit 1
+fi
+
+tty_path="$(tty 2>/dev/null || true)"
+case "${tty_path}" in
+  /dev/tty[1-9] | /dev/tty[1-9][0-9]) ;;
+  *)
+    printf 'Erro: execute a sessão a partir de um VT local ativo.\n' >&2
+    exit 1
+    ;;
+esac
+
+runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+bus_socket="${runtime_dir}/bus"
+
+if [[ ! -d "${runtime_dir}" || ! -O "${runtime_dir}" ]]; then
+  printf 'Erro: XDG_RUNTIME_DIR não pertence ao usuário da sessão: %s\n' \
+    "${runtime_dir}" >&2
+  exit 1
+fi
+
+# dbus-user-session publica o barramento canônico do usuário neste socket.
+# Não usamos dbus-run-session: ele criaria um barramento privado, separado do
+# gerenciador systemd --user que a M1.1 precisa comprovar.
+for ((attempt = 0; attempt < 100; attempt++)); do
+  [[ -S "${bus_socket}" ]] && break
+  sleep 0.1
+done
+
+if [[ ! -S "${bus_socket}" || ! -O "${bus_socket}" ]]; then
+  printf 'Erro: barramento D-Bus canônico indisponível: %s\n' \
+    "${bus_socket}" >&2
+  exit 1
+fi
+
+export XDG_RUNTIME_DIR="${runtime_dir}"
+export DBUS_SESSION_BUS_ADDRESS="unix:path=${bus_socket}"
+exec /usr/local/libexec/flavos-m1-session-runner

@@ -1,0 +1,16 @@
+[Unit]
+Description=Validação automática da fundação gráfica Flavos OS 3.0 M1.1
+ConditionKernelCommandLine=flavos.m1.probe=1
+ConditionPathExists=/sys/firmware/qemu_fw_cfg/by_name/opt/flavos.m1.graphical_nonce/raw
+ConditionPathExists=/sys/firmware/qemu_fw_cfg/by_name/opt/flavos.m1.tty_nonce/raw
+Wants=getty@tty1.service systemd-logind.service
+After=multi-user.target live-config.service
+After=getty@tty1.service systemd-logind.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/flavos-m1-probe
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=360s
+RemainAfterExit=yes

@@ -1,0 +1,6 @@
+#!/bin/sh
+
+state_dir=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/flavos-m1
+if [ -d "${state_dir}" ]; then
+  printf 'labwc-shutdown\n' >"${state_dir}/shutdown"
+fi

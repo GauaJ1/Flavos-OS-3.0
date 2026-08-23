@@ -38,6 +38,12 @@ ajustado.
 
 ## Decisões pendentes
 
-Os indicadores de capacidade, limites entre perfis, toolkit, compositor, formato
-de configuração e política de substituição manual ainda não foram escolhidos.
-Essas decisões serão pesquisadas e registradas antes do milestone M4.
+Os indicadores de capacidade, limites entre perfis, toolkit, compositor
+definitivo, formato de configuração e política de substituição manual ainda não
+foram escolhidos. Essas decisões serão pesquisadas e registradas antes do
+milestone M4.
+
+O [ADR-002](adr/ADR-002-display-stack.md) adota Labwc sobre wlroots somente como
+fundação gráfica inicial. A variável `WLR_RENDERER=pixman` pode ser acionada
+manualmente durante experimentos com hardware legado, mas não representa o
+perfil ECO, não é fallback automático e não define a futura política adaptativa.

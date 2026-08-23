@@ -1,0 +1,294 @@
+#!/bin/bash
+
+set -Eeuo pipefail
+export LC_ALL=C
+umask 077
+
+firmware=bios
+[[ -d /sys/firmware/efi ]] && firmware=uefi
+kernel="$(uname -r 2>/dev/null || printf unknown)"
+pid1="$(cat /proc/1/comm 2>/dev/null || printf unknown)"
+architecture="$(uname -m 2>/dev/null || printf unknown)"
+hostname_value="$(cat /proc/sys/kernel/hostname 2>/dev/null || printf unknown)"
+
+fail_probe() {
+  local reason=$1
+  trap - ERR
+  printf '%s\n' \
+    "FLAVOS_M1_1_PROBE result=FAIL firmware=${firmware} kernel=${kernel} pid1=${pid1} arch=${architecture} hostname=${hostname_value} failures=${reason}"
+  exit 1
+}
+
+unexpected_error() {
+  local exit_status=$?
+  local line_number=$1
+  fail_probe "internal_line_${line_number}_status_${exit_status}"
+}
+trap 'unexpected_error "${LINENO}"' ERR
+
+check_challenge_failures() {
+  local failure_path failure_reason
+
+  [[ -n "${state_dir:-}" ]] || return 0
+  for failure_path in \
+    "${state_dir}/challenge-failure" \
+    "${state_dir}/tty-failure"; do
+    [[ -s "${failure_path}" && ! -L "${failure_path}" ]] || continue
+    failure_reason="$(tr -cd '[:alnum:]_.:-' <"${failure_path}" | head -c 80)"
+    fail_probe "guest_${failure_reason:-unknown_failure}"
+  done
+}
+
+wait_for_nonempty_file() {
+  local file_path=$1
+  local timeout_seconds=${2:-60}
+  local deadline=$((SECONDS + timeout_seconds))
+
+  while ((SECONDS < deadline)); do
+    check_challenge_failures
+    [[ -s "${file_path}" && ! -L "${file_path}" ]] && return 0
+    sleep 0.1
+  done
+  check_challenge_failures
+  return 1
+}
+
+wait_for_all_nonempty() {
+  local timeout_seconds=$1
+  shift
+  local deadline=$((SECONDS + timeout_seconds))
+  local file_path all_ready
+
+  while ((SECONDS < deadline)); do
+    check_challenge_failures
+    all_ready=1
+    for file_path in "$@"; do
+      if [[ ! -s "${file_path}" || -L "${file_path}" ]]; then
+        all_ready=0
+        break
+      fi
+    done
+    ((all_ready == 1)) && return 0
+    sleep 0.1
+  done
+  check_challenge_failures
+  return 1
+}
+
+read_value() {
+  local key=$1
+  local file_path=$2
+  sed -n "s/^${key}=//p" "${file_path}" | sed -n '1p'
+}
+
+read_nonce() {
+  local name=$1
+  local path="/sys/firmware/qemu_fw_cfg/by_name/opt/flavos.m1.${name}/raw"
+  [[ -r "${path}" ]] || return 1
+  tr -d '\000\r\n' <"${path}"
+}
+
+[[ "${pid1}" == systemd ]] || fail_probe pid1
+[[ "${architecture}" == x86_64 ]] || fail_probe architecture
+[[ "${hostname_value}" == flavos ]] || fail_probe hostname
+grep -Fqx 'NAME="Flavos OS"' /etc/flavos-release || fail_probe identity_name
+grep -Fqx 'VERSION="3.0"' /etc/flavos-release || fail_probe identity_version
+grep -Fqx 'MILESTONE="M1.1"' /etc/flavos-release || fail_probe identity_milestone
+grep -Fqx 'ARCHITECTURE="amd64"' /etc/flavos-release || \
+  fail_probe identity_architecture
+grep -Fqw 'flavos.m1.probe=1' /proc/cmdline || fail_probe cmdline
+
+[[ "$(systemctl is-active multi-user.target 2>/dev/null || true)" == active ]] || \
+  fail_probe multi_user
+[[ "$(systemctl is-active getty@tty1.service 2>/dev/null || true)" == active ]] || \
+  fail_probe tty1
+[[ -c /dev/tty1 ]] || fail_probe tty1_device
+[[ -c /dev/ttyS0 ]] || fail_probe ttyS0_device
+systemctl is-active --quiet systemd-logind.service || fail_probe logind
+if systemctl is-active --quiet display-manager.service 2>/dev/null; then
+  fail_probe display_manager
+fi
+
+for binary_path in /usr/bin/labwc /usr/bin/foot /usr/bin/wayland-info \
+  /usr/bin/Xwayland /usr/bin/dbus-send /usr/bin/systemctl; do
+  [[ -x "${binary_path}" ]] || fail_probe "binary_$(basename "${binary_path}")"
+done
+
+user_id="$(id -u flavos 2>/dev/null || true)"
+[[ "${user_id}" =~ ^[0-9]+$ ]] || fail_probe live_user
+runtime_dir="/run/user/${user_id}"
+state_dir="${runtime_dir}/flavos-m1"
+[[ -d "${runtime_dir}" ]] || fail_probe runtime_dir
+[[ "$(stat -c %u "${runtime_dir}")" == "${user_id}" ]] || \
+  fail_probe runtime_owner
+
+wait_for_all_nonempty 90 \
+  "${state_dir}/session.env" \
+  "${state_dir}/wayland-info.status" \
+  "${state_dir}/systemd-user.status" \
+  "${state_dir}/dbus-user.status" \
+  "${state_dir}/foot.pid" \
+  "${state_dir}/mouse-ready" || fail_probe session_timeout
+
+session_env="${state_dir}/session.env"
+wayland_display="$(read_value WAYLAND_DISPLAY "${session_env}")"
+display_value="$(read_value DISPLAY "${session_env}")"
+session_runtime="$(read_value XDG_RUNTIME_DIR "${session_env}")"
+session_id="$(read_value XDG_SESSION_ID "${session_env}")"
+session_type="$(read_value XDG_SESSION_TYPE "${session_env}")"
+dbus_address="$(read_value DBUS_SESSION_BUS_ADDRESS "${session_env}")"
+labwc_pid="$(read_value LABWC_PID "${session_env}")"
+foot_pid="$(cat "${state_dir}/foot.pid")"
+
+[[ "${session_runtime}" == "${runtime_dir}" ]] || fail_probe runtime_mismatch
+[[ "${session_type}" == wayland ]] || fail_probe session_type
+[[ "${wayland_display}" == wayland-* ]] || fail_probe wayland_display
+[[ "${display_value}" == :* ]] || fail_probe xwayland_display
+[[ -S "${runtime_dir}/bus" ]] || fail_probe dbus_socket
+[[ "$(stat -c %u "${runtime_dir}/bus")" == "${user_id}" ]] || \
+  fail_probe dbus_socket_owner
+[[ "${dbus_address}" == "unix:path=${runtime_dir}/bus" ]] || \
+  fail_probe dbus_user
+[[ "${labwc_pid}" =~ ^[0-9]+$ && "${foot_pid}" =~ ^[0-9]+$ ]] || \
+  fail_probe process_ids
+
+wayland_socket="${runtime_dir}/${wayland_display}"
+[[ -S "${wayland_socket}" ]] || fail_probe wayland_socket
+[[ "$(stat -c %u "${wayland_socket}")" == "${user_id}" ]] || \
+  fail_probe wayland_socket_owner
+
+[[ -r "/proc/${labwc_pid}/comm" && \
+  "$(cat "/proc/${labwc_pid}/comm")" == labwc ]] || fail_probe labwc_process
+[[ "$(stat -c %u "/proc/${labwc_pid}")" == "${user_id}" ]] || \
+  fail_probe labwc_owner
+[[ "$(readlink -f "/proc/${labwc_pid}/exe" 2>/dev/null)" == /usr/bin/labwc ]] || \
+  fail_probe labwc_executable
+[[ -r "/proc/${foot_pid}/comm" && \
+  "$(cat "/proc/${foot_pid}/comm")" == foot ]] || fail_probe foot_process
+[[ "$(stat -c %u "/proc/${foot_pid}")" == "${user_id}" ]] || \
+  fail_probe foot_owner
+[[ "$(readlink -f "/proc/${foot_pid}/exe" 2>/dev/null)" == /usr/bin/foot ]] || \
+  fail_probe foot_executable
+
+sleep 3
+kill -0 "${labwc_pid}" 2>/dev/null || fail_probe labwc_unstable
+kill -0 "${foot_pid}" 2>/dev/null || fail_probe foot_unstable
+
+if tr '\000' '\n' <"/proc/${labwc_pid}/environ" | \
+  grep -Eq '^WLR_(BACKENDS=headless|HEADLESS_OUTPUTS=)'; then
+  fail_probe headless_backend
+fi
+
+drm_fd=absent
+render_fd=absent
+input_fd=absent
+for fd_path in "/proc/${labwc_pid}/fd/"*; do
+  [[ -e "${fd_path}" ]] || continue
+  fd_target="$(readlink "${fd_path}" 2>/dev/null || true)"
+  case "${fd_target}" in
+    /dev/dri/card*) drm_fd=present ;;
+    /dev/dri/renderD*) render_fd=present ;;
+    /dev/input/event*) input_fd=present ;;
+  esac
+done
+[[ "${drm_fd}" == present ]] || fail_probe drm_fd
+[[ "${input_fd}" == present ]] || fail_probe input_fd
+
+connector=unknown
+output_mode=unknown
+for status_path in /sys/class/drm/card*-*/status; do
+  [[ -r "${status_path}" ]] || continue
+  [[ "$(cat "${status_path}")" == connected ]] || continue
+  modes_path="${status_path%/status}/modes"
+  mode_value="$(sed -n '1p' "${modes_path}" 2>/dev/null || true)"
+  [[ -n "${mode_value}" ]] || continue
+  connector="$(basename "${status_path%/status}")"
+  output_mode="${mode_value}"
+  break
+done
+[[ "${connector}" != unknown ]] || fail_probe drm_connector
+
+drm_driver=unknown
+for card_path in /sys/class/drm/card[0-9]*; do
+  [[ -e "${card_path}/device/driver" ]] || continue
+  drm_driver="$(basename "$(readlink -f "${card_path}/device/driver")")"
+  break
+done
+[[ "${drm_driver}" == virtio_gpu ]] || fail_probe drm_driver
+
+[[ "$(cat "${state_dir}/wayland-info.status")" == 0 ]] || \
+  fail_probe wayland_info_status
+grep -Fq 'wl_output' "${state_dir}/wayland-info.txt" || \
+  fail_probe wayland_output
+grep -Eq 'current|width: [1-9][0-9]* px' "${state_dir}/wayland-info.txt" || \
+  fail_probe wayland_mode
+[[ "$(cat "${state_dir}/systemd-user.status")" == 0 ]] || \
+  fail_probe systemd_user
+grep -Fq "WAYLAND_DISPLAY=${wayland_display}" \
+  "${state_dir}/systemd-user.env" || fail_probe systemd_user_environment
+[[ "$(cat "${state_dir}/dbus-user.status")" == 0 ]] || fail_probe dbus_user_bus
+grep -Fq 'org.freedesktop.DBus' "${state_dir}/dbus-user.txt" || \
+  fail_probe dbus_user_reply
+
+[[ "${session_id}" != unknown && -n "${session_id}" ]] || \
+  fail_probe logind_session_id
+[[ "$(loginctl show-session "${session_id}" -p Seat --value 2>/dev/null)" == seat0 ]] || \
+  fail_probe logind_seat
+[[ "$(loginctl show-session "${session_id}" -p VTNr --value 2>/dev/null)" == 1 ]] || \
+  fail_probe logind_vt
+[[ "$(loginctl show-session "${session_id}" -p Active --value 2>/dev/null)" == yes ]] || \
+  fail_probe logind_active
+
+graphical_nonce="$(read_nonce graphical_nonce || true)"
+tty_nonce="$(read_nonce tty_nonce || true)"
+[[ "${graphical_nonce}" =~ ^[0-9]{8,12}$ ]] || fail_probe graphical_nonce
+[[ "${tty_nonce}" =~ ^[0-9]{8,12}$ ]] || fail_probe tty_nonce
+
+labwc_rss_kb="$(awk '/^VmRSS:/ {print $2}' "/proc/${labwc_pid}/status")"
+foot_rss_kb="$(awk '/^VmRSS:/ {print $2}' "/proc/${foot_pid}/status")"
+process_count="$(find /proc -maxdepth 1 -type d -name '[0-9]*' | wc -l)"
+renderer_hint="$({
+  grep -Ei 'renderer|pixman|gles2' "${state_dir}/labwc.log" 2>/dev/null || true
+} | tail -n 1 | tr -cs '[:alnum:]_.:+/-' '_' | cut -c 1-120)"
+[[ -n "${renderer_hint}" ]] || renderer_hint=not_reported
+
+printf '%s\n' \
+  "FLAVOS_M1_1_STAGE stage=MOUSE_READY firmware=${firmware} labwc=${labwc_pid} foot=${foot_pid} connector=${connector} mode=${output_mode} drm=${drm_fd} render=${render_fd} input=${input_fd} driver=${drm_driver}"
+
+wait_for_nonempty_file "${state_dir}/mouse-ok" 45 || fail_probe mouse_timeout
+printf '%s\n' "FLAVOS_M1_1_STAGE stage=KEYBOARD_READY firmware=${firmware}"
+
+wait_for_nonempty_file "${state_dir}/keyboard-ok" 45 || fail_probe keyboard_timeout
+[[ "$(cat "${state_dir}/keyboard-ok")" == "${graphical_nonce}" ]] || \
+  fail_probe keyboard_nonce
+
+printf '%s\n' \
+  "FLAVOS_M1_1_STAGE stage=GRAPHICS_PASS firmware=${firmware} mouse=ok keyboard=ok wayland=ok foot=mapped"
+
+wait_for_nonempty_file "${state_dir}/session-exit" 45 || fail_probe logout_timeout
+[[ "$(cat "${state_dir}/session-exit")" == 0 ]] || fail_probe labwc_exit_status
+wait_for_nonempty_file "${state_dir}/tty-ready" 30 || fail_probe tty_return_timeout
+
+for ((attempt = 0; attempt < 40; attempt++)); do
+  if ! kill -0 "${labwc_pid}" 2>/dev/null && ! kill -0 "${foot_pid}" 2>/dev/null && \
+    [[ ! -S "${wayland_socket}" ]]; then
+    break
+  fi
+  sleep 0.25
+done
+kill -0 "${labwc_pid}" 2>/dev/null && fail_probe labwc_still_active
+kill -0 "${foot_pid}" 2>/dev/null && fail_probe foot_still_active
+[[ ! -S "${wayland_socket}" ]] || fail_probe wayland_socket_still_active
+[[ -r /sys/class/tty/tty0/active ]] || fail_probe active_vt_unavailable
+[[ "$(cat /sys/class/tty/tty0/active)" == tty1 ]] || fail_probe active_vt_not_tty1
+
+printf '%s\n' "FLAVOS_M1_1_STAGE stage=TTY_READY firmware=${firmware}"
+wait_for_nonempty_file "${state_dir}/tty-ok" 45 || fail_probe tty_input_timeout
+[[ "$(cat "${state_dir}/tty-ok")" == "${tty_nonce}" ]] || \
+  fail_probe tty_nonce_mismatch
+
+failed_units="$(systemctl --failed --no-legend --plain 2>/dev/null || true)"
+[[ -z "${failed_units}" ]] || fail_probe failed_units
+
+printf '%s\n' \
+  "FLAVOS_M1_1_PROBE result=PASS firmware=${firmware} kernel=${kernel} pid1=${pid1} arch=${architecture} hostname=${hostname_value} multi_user=active tty1=active identity=ok logind=ok seat=seat0 vt=1 active_vt=tty1 drm=ok render_fd=${render_fd} renderer_hint=${renderer_hint} driver=${drm_driver} connector=${connector} mode=${output_mode} wayland=ok labwc=ok foot=ok xwayland=available dbus_user=ok systemd_user=ok mouse=ok keyboard=ok logout=ok return_tty=ok labwc_rss_kb=${labwc_rss_kb:-0} foot_rss_kb=${foot_rss_kb:-0} processes=${process_count} failures=none"

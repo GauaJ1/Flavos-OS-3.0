@@ -16,9 +16,10 @@ Estas configurações são pontos de teste, não requisitos finais publicados:
 | Intermediária | 8 GB de RAM, GPU integrada e SSD |
 | Moderna | 16/32+ GB de RAM, NVMe e GPU moderna |
 
-## Matriz do M0
+## Matriz encerrada do M0
 
-Cada build mínimo deverá ser exercitado, no mínimo, nestes modos:
+O M0 foi exercitado nestes modos; os resultados estão no
+[relatório de encerramento](M0-REPORT.md):
 
 | Firmware | Máquina | Resultado esperado |
 |---|---|---|
@@ -27,6 +28,26 @@ Cada build mínimo deverá ser exercitado, no mínimo, nestes modos:
 
 Máquinas virtuais validam o pipeline e os caminhos de firmware. A homologação de
 hardware antigo requer máquinas físicas em milestones posteriores.
+
+## Matriz de aceitação do M1.1 (em implementação)
+
+Cada passagem limpa deverá preservar o resultado M0 e exercitar a fundação
+gráfica nos dois caminhos:
+
+| Firmware | Máquina | Resultado esperado |
+|---|---|---|
+| BIOS legado | QEMU | TTY utilizável, sessão logind, output DRM, Labwc, socket Wayland, entrada e Foot |
+| UEFI | QEMU com OVMF | TTY utilizável, sessão logind, output DRM, Labwc, socket Wayland, entrada e Foot |
+
+Teclado e ponteiro precisam produzir evidência de entrada real; detectar apenas
+processos ou pacotes não basta. O teste de cliente X11 via XWayland fica para o
+M1.2. Uma execução manual com `WLR_RENDERER=pixman` pode fornecer diagnóstico de
+software rendering, mas não conta como fallback nem substitui o renderer normal
+no gate.
+
+Esta matriz ainda não possui resultado PASS. Compatibilidade com GPUs antigas
+será medida em hardware físico antes de qualquer decisão sobre Xorg completo ou
+fallback automático.
 
 ## Critérios a medir futuramente
 

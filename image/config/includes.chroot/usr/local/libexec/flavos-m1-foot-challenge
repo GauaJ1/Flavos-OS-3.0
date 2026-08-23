@@ -1,0 +1,87 @@
+#!/bin/bash
+
+set -Eeuo pipefail
+export LC_ALL=C
+umask 077
+
+readonly STATE_DIR="${XDG_RUNTIME_DIR}/flavos-m1"
+
+publish_text() {
+  local destination=$1
+  shift
+  local temporary="${destination}.tmp.$$"
+
+  printf '%s\n' "$@" >"${temporary}"
+  chmod 0600 "${temporary}"
+  mv -f -- "${temporary}" "${destination}"
+}
+
+fail_challenge() {
+  publish_text "${STATE_DIR}/challenge-failure" "$*"
+  printf '\033[?1000l\033[?1006l' || true
+  if [[ -n "${saved_stty:-}" ]]; then
+    stty "${saved_stty}" 2>/dev/null || true
+  fi
+  exit 1
+}
+
+publish_text "${STATE_DIR}/foot-child.pid" "$$"
+printf '\033[2J\033[H'
+printf 'Flavos OS 3.0 — M1.1 Display Foundation\r\n\r\n'
+printf 'Labwc + Wayland + Foot estão ativos.\r\n'
+printf 'Aguardando o clique real do mouse virtual...\r\n'
+
+saved_stty="$(stty -g)"
+stty raw -echo
+
+# Descarta teclas de firmware/menu que possam ter chegado antes de o desafio
+# assumir o PTY. A aceitação começa somente após mouse-ready ser publicado.
+while IFS= read -r -N 1 -t 0.05 _discard; do
+  :
+done
+
+printf '\033[?1000h\033[?1006h'
+publish_text "${STATE_DIR}/mouse-ready" ready
+
+mouse_buffer=
+mouse_x=
+mouse_y=
+mouse_prefix=$'\033[<0;'
+mouse_deadline=$((SECONDS + 60))
+while ((SECONDS < mouse_deadline)); do
+  if ! IFS= read -r -N 1 -t 1 char; then
+    continue
+  fi
+  mouse_buffer+="${char}"
+  ((${#mouse_buffer} <= 256)) || mouse_buffer="${mouse_buffer: -128}"
+
+  [[ "${char}" == M ]] || continue
+  [[ "${mouse_buffer}" == *"${mouse_prefix}"* ]] || continue
+  mouse_position="${mouse_buffer##*"${mouse_prefix}"}"
+  mouse_position="${mouse_position%M}"
+  candidate_x="${mouse_position%%;*}"
+  candidate_y="${mouse_position#*;}"
+  if [[ "${candidate_x}" =~ ^[0-9]+$ && "${candidate_y}" =~ ^[0-9]+$ ]]; then
+    mouse_x="${candidate_x}"
+    mouse_y="${candidate_y}"
+    break
+  fi
+done
+
+printf '\033[?1000l\033[?1006l'
+stty "${saved_stty}"
+saved_stty=
+
+[[ -n "${mouse_x}" && -n "${mouse_y}" ]] || fail_challenge 'mouse_timeout'
+publish_text "${STATE_DIR}/mouse-ok" "x=${mouse_x} y=${mouse_y}"
+
+printf '\r\nMouse confirmado. Digite o desafio numérico e pressione Enter: '
+publish_text "${STATE_DIR}/keyboard-ready" ready
+IFS= read -r typed_nonce
+
+[[ "${typed_nonce}" =~ ^[0-9]{8,12}$ ]] || \
+  fail_challenge 'keyboard_nonce_format'
+
+publish_text "${STATE_DIR}/keyboard-ok" "${typed_nonce}"
+printf '\r\nTeclado confirmado. Encerrando Labwc para testar o retorno ao TTY...\r\n'
+labwc --exit

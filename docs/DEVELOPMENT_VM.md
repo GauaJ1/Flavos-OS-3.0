@@ -85,7 +85,10 @@ usermod -aG sudo USUARIO
 
 Saia da sessão e entre novamente com o usuário normal antes de testar `sudo -v`.
 
-## Dependências do M0 dentro da VM
+## Dependências de build dentro da VM
+
+O M0 e o M1.1 usam o mesmo conjunto de ferramentas de construção. Instale-as
+na VM Debian sem desktop:
 
 ```bash
 sudo apt update
@@ -101,6 +104,38 @@ sudo apt install \
 
 Após instalar as dependências, clone o repositório
 `https://github.com/GauaJ1/Flavos-OS-3.0.git` dentro da VM.
+
+O ciclo oficial não aceita opções avulsas em `lb config` ou `lb build`: toda
+mudança de configuração precisa ser registrada em `image/auto/config`. Antes de
+cada passagem, elimine os estados do live-build e regenere a configuração:
+
+```bash
+cd image
+sudo lb clean --purge
+lb config
+sudo lb build
+```
+
+O build recusa cache, chroot, binary, stages e artefatos residuais. Também
+registra no `build.log` o commit, o ambiente, as versões das ferramentas, a
+configuração efetiva e seus checksums. Isso impede que um checkout limpo seja
+confundido com uma construção incremental baseada em estado ignorado pelo Git.
+
+## Dependências do laboratório de aceitação M1.1
+
+Na máquina que executará os validadores e os boots BIOS/UEFI, instale:
+
+```bash
+sudo apt install \
+  qemu-system-x86 \
+  ovmf \
+  xorriso \
+  squashfs-tools \
+  imagemagick
+```
+
+`imagemagick` é usado pelo harness M1.1 para inspecionar os screenshots do
+framebuffer. Ele não é uma dependência da ISO nem da sessão gráfica convidada.
 
 ## Display VNC
 
