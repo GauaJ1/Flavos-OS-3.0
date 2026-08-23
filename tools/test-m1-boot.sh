@@ -305,7 +305,8 @@ validate_ready_line() {
     "firmware=${mode}" \
     'drm=present' \
     'input=present' \
-    'driver=virtio_gpu'; do
+    'driver=virtio_gpu' \
+    'transport=virtio-pci'; do
     [[ " ${line} " == *" ${token} "* ]] || {
       printf 'Sentinela gráfica %s sem token: %s\n' "${mode}" "${token}" >&2
       return 1
@@ -332,6 +333,7 @@ validate_final_line() {
     'active_vt=tty1' \
     'drm=ok' \
     'driver=virtio_gpu' \
+    'transport=virtio-pci' \
     'wayland=ok' \
     'labwc=ok' \
     'foot=ok' \

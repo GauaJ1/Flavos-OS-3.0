@@ -251,6 +251,17 @@ grep -Fq '/sys/class/tty/tty0/active' <<<"${probe_script}" || \
   fail 'probe não comprova o VT ativo no squashfs'
 grep -Fq 'active_vt=tty1' <<<"${probe_script}" || \
   fail 'sentinela do probe não registra o VT ativo no squashfs'
+grep -Fq 'drm_node="${fd_target##*/}"' <<<"${probe_script}" || \
+  fail 'probe não correlaciona o card DRM ao descritor do Labwc no squashfs'
+grep -Fq 'for status_path in "${card_path}"-*/status' <<<"${probe_script}" || \
+  fail 'probe não correlaciona o conector ao card DRM usado no squashfs'
+grep -Fq 'for virtio_device in "${card_device}"/virtio*' \
+  <<<"${probe_script}" || \
+  fail 'probe não resolve o driver funcional sob virtio-pci no squashfs'
+grep -Fq '[[ "${drm_driver}" == virtio_gpu ]]' <<<"${probe_script}" || \
+  fail 'probe não exige o driver gráfico virtio_gpu no squashfs'
+grep -Fq '[[ "${drm_transport}" == virtio-pci ]]' <<<"${probe_script}" || \
+  fail 'probe não exige o transporte virtio-pci no squashfs'
 grep -Fq 'TimeoutStartSec=360s' <<<"${probe_service}" || \
   fail 'serviço do probe não possui timeout de 360 segundos no squashfs'
 grep -Fq 'opt/flavos.m1.${name}' <<<"${probe_script}" || \

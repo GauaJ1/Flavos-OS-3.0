@@ -331,6 +331,16 @@ require_literal '/sys/class/tty/tty0/active' "${PROBE}" \
   'validação do VT ativo após o logout'
 require_literal 'active_vt=tty1' "${PROBE}" \
   'resultado do VT ativo na sentinela final'
+require_literal 'drm_node="${fd_target##*/}"' "${PROBE}" \
+  'correlação do card DRM com o descritor aberto pelo Labwc'
+require_literal 'for status_path in "${card_path}"-*/status' "${PROBE}" \
+  'correlação do conector com o card DRM usado pelo Labwc'
+require_literal 'for virtio_device in "${card_device}"/virtio*' "${PROBE}" \
+  'resolução do driver funcional no filho do transporte virtio-pci'
+require_literal '[[ "${drm_driver}" == virtio_gpu ]]' "${PROBE}" \
+  'driver gráfico virtio_gpu comprovado pelo probe'
+require_literal '[[ "${drm_transport}" == virtio-pci ]]' "${PROBE}" \
+  'transporte virtio-pci comprovado separadamente pelo probe'
 
 for atomic_writer in \
   "${SESSION_RUNNER}" \

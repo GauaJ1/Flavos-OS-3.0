@@ -180,23 +180,31 @@ if tr '\000' '\n' <"/proc/${labwc_pid}/environ" | \
 fi
 
 drm_fd=absent
+drm_node=unknown
 render_fd=absent
 input_fd=absent
 for fd_path in "/proc/${labwc_pid}/fd/"*; do
   [[ -e "${fd_path}" ]] || continue
   fd_target="$(readlink "${fd_path}" 2>/dev/null || true)"
   case "${fd_target}" in
-    /dev/dri/card*) drm_fd=present ;;
+    /dev/dri/card*)
+      drm_fd=present
+      [[ "${drm_node}" != unknown ]] || drm_node="${fd_target##*/}"
+      ;;
     /dev/dri/renderD*) render_fd=present ;;
     /dev/input/event*) input_fd=present ;;
   esac
 done
 [[ "${drm_fd}" == present ]] || fail_probe drm_fd
 [[ "${input_fd}" == present ]] || fail_probe input_fd
+[[ "${drm_node}" =~ ^card[0-9]+$ ]] || fail_probe drm_node
+
+card_path="/sys/class/drm/${drm_node}"
+[[ -e "${card_path}" ]] || fail_probe drm_card
 
 connector=unknown
 output_mode=unknown
-for status_path in /sys/class/drm/card*-*/status; do
+for status_path in "${card_path}"-*/status; do
   [[ -r "${status_path}" ]] || continue
   [[ "$(cat "${status_path}")" == connected ]] || continue
   modes_path="${status_path%/status}/modes"
@@ -209,12 +217,24 @@ done
 [[ "${connector}" != unknown ]] || fail_probe drm_connector
 
 drm_driver=unknown
-for card_path in /sys/class/drm/card[0-9]*; do
-  [[ -e "${card_path}/device/driver" ]] || continue
-  drm_driver="$(basename "$(readlink -f "${card_path}/device/driver")")"
+drm_transport=unknown
+card_device="$(readlink -f "${card_path}/device" 2>/dev/null || true)"
+[[ -n "${card_device}" ]] || fail_probe drm_device
+[[ -L "${card_device}/driver" ]] || fail_probe drm_transport
+drm_transport="$(
+  basename "$(readlink -f "${card_device}/driver" 2>/dev/null || true)"
+)"
+for virtio_device in "${card_device}"/virtio*; do
+  [[ -L "${virtio_device}/driver" ]] || continue
+  driver_candidate="$(
+    basename "$(readlink -f "${virtio_device}/driver" 2>/dev/null || true)"
+  )"
+  [[ "${driver_candidate}" == virtio_gpu ]] || continue
+  drm_driver=virtio_gpu
   break
 done
 [[ "${drm_driver}" == virtio_gpu ]] || fail_probe drm_driver
+[[ "${drm_transport}" == virtio-pci ]] || fail_probe drm_transport
 
 [[ "$(cat "${state_dir}/wayland-info.status")" == 0 ]] || \
   fail_probe wayland_info_status
@@ -253,7 +273,7 @@ renderer_hint="$({
 [[ -n "${renderer_hint}" ]] || renderer_hint=not_reported
 
 printf '%s\n' \
-  "FLAVOS_M1_1_STAGE stage=MOUSE_READY firmware=${firmware} labwc=${labwc_pid} foot=${foot_pid} connector=${connector} mode=${output_mode} drm=${drm_fd} render=${render_fd} input=${input_fd} driver=${drm_driver}"
+  "FLAVOS_M1_1_STAGE stage=MOUSE_READY firmware=${firmware} labwc=${labwc_pid} foot=${foot_pid} connector=${connector} mode=${output_mode} drm=${drm_fd} drm_node=${drm_node} render=${render_fd} input=${input_fd} driver=${drm_driver} transport=${drm_transport}"
 
 wait_for_nonempty_file "${state_dir}/mouse-ok" 45 || fail_probe mouse_timeout
 printf '%s\n' "FLAVOS_M1_1_STAGE stage=KEYBOARD_READY firmware=${firmware}"
@@ -291,4 +311,4 @@ failed_units="$(systemctl --failed --no-legend --plain 2>/dev/null || true)"
 [[ -z "${failed_units}" ]] || fail_probe failed_units
 
 printf '%s\n' \
-  "FLAVOS_M1_1_PROBE result=PASS firmware=${firmware} kernel=${kernel} pid1=${pid1} arch=${architecture} hostname=${hostname_value} multi_user=active tty1=active identity=ok logind=ok seat=seat0 vt=1 active_vt=tty1 drm=ok render_fd=${render_fd} renderer_hint=${renderer_hint} driver=${drm_driver} connector=${connector} mode=${output_mode} wayland=ok labwc=ok foot=ok xwayland=available dbus_user=ok systemd_user=ok mouse=ok keyboard=ok logout=ok return_tty=ok labwc_rss_kb=${labwc_rss_kb:-0} foot_rss_kb=${foot_rss_kb:-0} processes=${process_count} failures=none"
+  "FLAVOS_M1_1_PROBE result=PASS firmware=${firmware} kernel=${kernel} pid1=${pid1} arch=${architecture} hostname=${hostname_value} multi_user=active tty1=active identity=ok logind=ok seat=seat0 vt=1 active_vt=tty1 drm=ok drm_node=${drm_node} render_fd=${render_fd} renderer_hint=${renderer_hint} driver=${drm_driver} transport=${drm_transport} connector=${connector} mode=${output_mode} wayland=ok labwc=ok foot=ok xwayland=available dbus_user=ok systemd_user=ok mouse=ok keyboard=ok logout=ok return_tty=ok labwc_rss_kb=${labwc_rss_kb:-0} foot_rss_kb=${foot_rss_kb:-0} processes=${process_count} failures=none"
