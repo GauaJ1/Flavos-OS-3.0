@@ -66,7 +66,9 @@ manifest_has_package() {
   local package_name="$1"
 
   awk -v package_name="${package_name}" \
-    '$1 == package_name { found = 1 } END { exit(found ? 0 : 1) }' \
+    '{ candidate = $1; sub(/:[^:]+$/, "", candidate) }
+     candidate == package_name { found = 1 }
+     END { exit(found ? 0 : 1) }' \
     "${INTERNAL_MANIFEST}"
 }
 
@@ -119,7 +121,11 @@ forbidden_package="$(
       return 0
     }
 
-    forbidden($1) { print $1; exit }
+    {
+      package_name = $1
+      sub(/:[^:]+$/, "", package_name)
+    }
+    forbidden(package_name) { print $1; exit }
   ' "${INTERNAL_MANIFEST}"
 )"
 
